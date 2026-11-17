@@ -319,7 +319,7 @@
 </div>
 
 <div class="dashboard-grid no-print" id="v2Dashboard">
-    <div class="metric-card metric-danger" onclick="applyStatusQuickFilter('Cobrar')">
+    <div class="metric-card metric-danger" onclick="applyStatusQuickFilter('Cobrado')">
         <div class="metric-label">🔴 Atrasadas</div><div class="metric-value" id="v2Atrasadas">0</div><div class="metric-sub">Precisam de cobrança</div>
     </div>
     <div class="metric-card metric-warning" onclick="filterToday()">
@@ -328,8 +328,8 @@
     <div class="metric-card metric-info" onclick="applyStatusQuickFilter('Entrega Parcial')">
         <div class="metric-label">📦 Parciais</div><div class="metric-value" id="v2Parciais">0</div><div class="metric-sub">Aguardam conclusão</div>
     </div>
-    <div class="metric-card metric-purple" onclick="applyStatusQuickFilter('Notificar')">
-        <div class="metric-label">⚠️ Sanções</div><div class="metric-value" id="v2Sancoes">0</div><div class="metric-sub">Notificar/advertir/multar</div>
+    <div class="metric-card metric-purple" onclick="applyStatusQuickFilter('Notificado')">
+        <div class="metric-label">⚠️ Sanções</div><div class="metric-value" id="v2Sancoes">0</div><div class="metric-sub">Notificado/advertido/multado</div>
     </div>
     <div class="metric-card metric-success" onclick="applyStatusQuickFilter('Entregue')">
         <div class="metric-label">✅ Concluídas</div><div class="metric-value" id="v2Entregues">0</div><div class="metric-sub">AFs entregues</div>
@@ -394,9 +394,9 @@
                 <select id="statusSancao">
                     <option value="Regular">Em Dia / Regular</option>
                     <option value="Cobrar">Cobrar Fornecedor</option>
-                    <option value="Notificar">Notificar</option>
-                    <option value="Advertir">Advertir</option>
-                    <option value="Multar">Multar</option>
+                    <option value="Notificar">Notificado</option>
+                    <option value="Advertir">Adveritdo</option>
+                    <option value="Multar">Multado</option>
                     <option value="Entrega Parcial">Entrega Parcial</option>
                     <option value="Saldo Cancelado">Saldo Cancelado</option>
                     <option value="Entregue">Concluído / Entregue</option>
