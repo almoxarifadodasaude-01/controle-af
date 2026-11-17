@@ -393,10 +393,10 @@
                 <label>Status Inicial</label>
                 <select id="statusSancao">
                     <option value="Regular">Em Dia / Regular</option>
-                    <option value="Cobrar">Cobrar Fornecedor</option>
-                    <option value="Notificar">Notificado</option>
-                    <option value="Advertir">Adveritdo</option>
-                    <option value="Multar">Multado</option>
+                    <option value="Cobrado">Cobrar Fornecedor</option>
+                    <option value="Notificado">Notificado</option>
+                    <option value="Advertido">Adveritdo</option>
+                    <option value="Multado">Multado</option>
                     <option value="Entrega Parcial">Entrega Parcial</option>
                     <option value="Saldo Cancelado">Saldo Cancelado</option>
                     <option value="Entregue">Concluído / Entregue</option>
@@ -1615,7 +1615,7 @@
             cobrancas.push({ data: `${parts[2]}/${parts[1]}/${parts[0]}`, usuario: usuarioLogado ? usuarioLogado.nome : 'Almoxarife', obs: obsCob });
 
             let statussancao = af.statussancao || af.statusSancao;
-            if(cobrancas.length >= 3 && (statussancao === 'Regular' || statussancao === 'Cobrar')) statussancao = 'Notificar';
+            if(cobrancas.length >= 3 && (statussancao === 'Regular' || statussancao === 'Cobrar')) statussancao = 'Notificado';
 
             await _supabase.from('afs').update({ cobrancas, statussancao }).eq('id', id);
             closeModalCobranca();
@@ -1770,7 +1770,7 @@
             const s=afStatus(af); const d=daysFromToday(af.prazoentrega || af.prazoEntrega);
             if(s==='Entregue') entregues++;
             if(s==='Entrega Parcial') parciais++;
-            if(['Notificar','Advertir','Multar'].includes(s)) sancoes++;
+            if(['Notificado','Advertido','Multado'].includes(s)) sancoes++;
             if(!isClosed(af)){ 
                 pendente += afPending(af); 
                 if(d!==null){ 
@@ -1779,7 +1779,7 @@
                     else if(d<=3){priority.push({level:'info',title:`${af.numaf||af.numAf||'AF'} — ${af.fornecedor||'Fornecedor'}`,meta:`Prazo em ${d} dia(s)`,tag:s,id:af.id});} 
                 } 
             }
-            if(s==='Notificar'||s==='Advertir'||s==='Multar') priority.push({level:'danger',title:`${af.numaf||af.numAf||'AF'} — ${af.fornecedor||'Fornecedor'}`,meta:`Situação: ${s}`,tag:'Ação',id:af.id});
+            if(s==='Notificado'||s==='Advertido'||s==='Multado') priority.push({level:'danger',title:`${af.numaf||af.numAf||'AF'} — ${af.fornecedor||'Fornecedor'}`,meta:`Situação: ${s}`,tag:'Ação',id:af.id});
             if((af.vigenciaata||af.vigenciaAta) && !isClosed(af)){ const vd=daysFromToday(af.vigenciaata||af.vigenciaAta); if(vd!==null && vd>=0 && vd<=30) priority.push({level:'warning',title:`${af.numaf||af.numAf||'AF'} — vigência próxima`,meta:`Ata/contrato vence em ${vd} dia(s)`,tag:'Vigência',id:af.id}); }
         });
         document.getElementById('v2Atrasadas').textContent=atrasadas;
@@ -1808,7 +1808,7 @@
             const d=daysFromToday(af.prazoentrega||af.prazoEntrega); const s=afStatus(af);
             if(d!==null && d<0) items.push({kind:'danger',title:`${af.numaf||af.numAf}: prazo em atraso`,meta:`${af.fornecedor||'-'} • ${Math.abs(d)} dia(s)`,id:af.id});
             else if(d===0) items.push({kind:'warning',title:`${af.numaf||af.numAf}: vence hoje`,meta:af.fornecedor||'-',id:af.id});
-            if(['Notificar','Advertir','Multar'].includes(s)) items.push({kind:'danger',title:`${af.numaf||af.numAf}: ${s}`,meta:af.fornecedor||'-',id:af.id});
+            if(['Notificado','Advertido','Multado'].includes(s)) items.push({kind:'danger',title:`${af.numaf||af.numAf}: ${s}`,meta:af.fornecedor||'-',id:af.id});
             const v=af.vigenciaata||af.vigenciaAta; const vd=daysFromToday(v); if(vd!==null && vd>=0 && vd<=30) items.push({kind:'warning',title:`${af.numaf||af.numAf}: vigência próxima`,meta:`vence em ${vd} dia(s)`,id:af.id});
         });
         list.innerHTML=items.slice(0,20).map(i=>`<div class="notification-item" onclick="focusAf(${i.id});closeNotifications()"><div class="notif-title">${i.kind==='danger'?'🔴':'🟡'} ${escapeHtml(i.title)}</div><div class="notif-meta">${escapeHtml(i.meta)}</div></div>`).join('') || '<div class="empty-state">Nenhum alerta no momento.</div>';
@@ -1832,7 +1832,7 @@
         scrollToSection('mainTable');
         document.querySelectorAll('#afTableBody tr').forEach(tr=>{
             const text=tr.innerText||'';
-            if(status==='Notificar') tr.style.display = text.includes('Notificar')||text.includes('Advertir')||text.includes('Multar')?'':'none';
+            if(status==='Notificado') tr.style.display = text.includes('Notificado')||text.includes('Advertido')||text.includes('Multado')?'':'none';
             else tr.style.display = text.includes(status)?'':'none';
         });
     }
@@ -2006,10 +2006,10 @@
                 <td>
                     <select onchange="tratarMudancaStatusSelect(${af.id}, this.value)" style="width: auto; font-weight: bold;">
                         <option value="Regular" ${currentStatus === 'Regular' ? 'selected' : ''}>Regular</option>
-                        <option value="Cobrar" ${currentStatus === 'Cobrar' ? 'selected' : ''}>Cobrar</option>
-                        <option value="Notificar" ${currentStatus === 'Notificar' ? 'selected' : ''}>Notificar</option>
-                        <option value="Advertir" ${currentStatus === 'Advertir' ? 'selected' : ''}>Advertir</option>
-                        <option value="Multar" ${currentStatus === 'Multar' ? 'selected' : ''}>Multar</option>
+                        <option value="Cobrado" ${currentStatus === 'Cobrado' ? 'selected' : ''}>Cobrar</option>
+                        <option value="Notificado" ${currentStatus === 'Notificado' ? 'selected' : ''}>Notificado</option>
+                        <option value="Advertido" ${currentStatus === 'Advertido' ? 'selected' : ''}>Advertir</option>
+                        <option value="Multado" ${currentStatus === 'Multado' ? 'selected' : ''}>Multar</option>
                         <option value="Entrega Parcial" ${currentStatus === 'Entrega Parcial' ? 'selected' : ''}>Entrega Parcial</option>
                         <option value="Saldo Cancelado" ${currentStatus === 'Saldo Cancelado' ? 'selected' : ''}>Saldo Cancelado</option>
                         <option value="Entregue" ${currentStatus === 'Entregue' ? 'selected' : ''}>Entregue / Concluído</option>
