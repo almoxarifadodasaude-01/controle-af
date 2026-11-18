@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prefeitura de Avaré - Controle de AFs</title>
+    <!-- XLSX Library -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Biblioteca para ler texto de arquivos PDF direto no navegador -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --warning: #eab308;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --page-bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --border: #e2e8f0;
+            --primary-dark: #1d4ed8;
+            --muted: #64748b;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --shadow: 0 8px 24px rgba(15,23,42,.07);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        
+        body {
+            background-color: var(--page-bg);
+            background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2364748b' fill-opacity='0.045' fill-rule='evenodd'%3E%3Cpath d='M10 15 a5 5 0 0 1 10 0 v8 a5 5 0 0 1 -10 0 z' /%3E%3Cline x1='10' y1='19' x2='20' y2='19' stroke='%2364748b' stroke-opacity='0.045' stroke-width='1'/%3E%3Ccircle cx='60' cy='20' r='7' /%3E%3Cline x1='55' y1='20' x2='65' y2='20' stroke='%23f1f5f9' stroke-width='1.2'/%3E%3Cpath d='M18 55 h4 v-4 h4 v4 h4 v4 h-4 v4 h-4 v-4 h-4 z' /%3E%3Crect x='50' y='50' width='14' height='12' rx='2' /%3E%3Cpath d='M50 54 h14' stroke='%23f1f5f9' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E");
+            background-attachment: fixed;
+            color: var(--text);
+            padding: 16px;
+            line-height: 1.5;
+            transition: background-color 0.2s ease;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        .card, .panel, .metric-card, .header-official, table {
+            background: rgba(255, 255, 255, 0.96) !important;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Controle de Cor de Fundo */
+        .bg-picker-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #334155;
+        }
+        .bg-picker-wrapper input[type="color"] {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            cursor: pointer;
+            background: transparent;
+        }
+        .btn-reset-bg {
+            background: transparent !important;
+            color: #64748b !important;
+            border: none !important;
+            padding: 2px 4px !important;
+            font-size: 0.8rem !important;
+            cursor: pointer;
+        }
+        .btn-reset-bg:hover {
+            color: #0f172a !important;
+        }
+
+        /* Modal de Login */
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: white; padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+
+        /* Destaques de Linha por Status */
+        tr.row-entregue { background-color: #dcfce7 !important; } 
+        tr.row-parcial { background-color: #fef9c3 !important; }  
+        tr.row-cancelado { background-color: #e2e8f0 !important; } 
+
+        /* AF com vigência vencida */
+        tr.row-vigencia-vencida {
+            background-color: #fecaca !important;
+            color: #991b1b !important;
+        }
+
+        tr.row-vigencia-vencida td {
+            background-color: #fecaca !important;
+            color: #991b1b !important;
+            border-bottom-color: #fca5a5 !important;
+        }
+
+        tr.row-vigencia-vencida td strong,
+        tr.row-vigencia-vencida td b {
+            color: #7f1d1d !important;
+        }
+
+        tr.row-vigencia-vencida select {
+            background-color: #fee2e2 !important;
+            color: #991b1b !important;
+            border-color: #f87171 !important;
+        }
+
+        .badge-vigencia-vencida {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: #dc2626;
+            color: white !important;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        
+        /* Cabeçalho Oficial Web */
+        .header-official { padding: 20px; border-radius: 12px; border: 1px solid var(--border); border-left: 6px solid var(--primary); margin-bottom: 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .header-official h1 { font-size: 1.4rem; color: #1e293b; text-transform: uppercase; }
+        .header-official h2 { font-size: 1rem; color: #475569; font-weight: 600; margin-top: 2px; }
+
+        .card { padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #475569; }
+        input, select, textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
+        
+        button, .btn { background: var(--primary); color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; text-decoration: none; }
+        button:hover, .btn:hover { opacity: 0.9; }
+        .btn-success { background: var(--success); }
+        .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn-outline:hover { background: #f1f5f9; }
+        .btn-cobranca { background: #0284c7; padding: 4px 8px; font-size: 0.75rem; }
+        .btn-parcial { background: #8b5cf6; padding: 4px 8px; font-size: 0.75rem; }
+        .btn-cancelar { background: #475569; padding: 4px 8px; font-size: 0.75rem; }
+        .btn-oficio { background: #dc2626; padding: 4px 8px; font-size: 0.75rem; }
+        .btn-edit { background: #f59e0b; padding: 4px 8px; font-size: 0.75rem; }
+        .btn-delete { background: #ef4444; padding: 4px 8px; font-size: 0.75rem; }
+        .btn-mini { padding: 2px 5px; font-size: 0.7rem; border-radius: 4px; }
+
+        .controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .controls-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+        .excel-actions { display: flex; gap: 10px; background: rgba(255,255,255,0.95); padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+        table { width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+        th, td { padding: 10px 12px; text-align: left; font-size: 0.85rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+        th { background: #f1f5f9; font-weight: 600; color: #334155; }
+
+        .status-online { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: bold; color: #16a34a; background: #dcfce7; padding: 4px 10px; border-radius: 12px; }
+        .status-dot { width: 8px; height: 8px; background: #16a34a; border-radius: 50%; display: inline-block; }
+
+        .setor-badge { padding: 4px 10px; border-radius: 12px; color: white; font-weight: 700; font-size: 0.75rem; display: inline-block; }
+        
+        .badge-prazo { padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; display: inline-block; margin-top: 4px; }
+        .badge-ok { background: #dcfce7; color: #16a34a; }
+        .badge-hoje { background: #fef9c3; color: #ca8a04; }
+        .badge-atrasado { background: #fee2e2; color: #dc2626; }
+
+        .history-list { font-size: 0.75rem; color: #475569; margin-top: 4px; max-height: 120px; overflow-y: auto; background: rgba(255,255,255,0.85); padding: 4px; border-radius: 4px; border: 1px solid #cbd5e1; }
+        .item-parcial-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 2px; border-bottom: 1px dashed #e2e8f0; }
+        .actions-cell { white-space: nowrap; display: flex; flex-direction: column; gap: 4px; }
+        
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+
+        /* Filtro Alfabético */
+        .alphabet-filter { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 15px; align-items: center; background: rgba(255,255,255,0.95); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); }
+        .alphabet-btn { background: #f8fafc; border: 1px solid var(--border); color: #334155; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: all 0.15s ease; }
+        .alphabet-btn:hover { background: #e2e8f0; }
+        .alphabet-btn.active { background: var(--primary); color: #ffffff; border-color: var(--primary); }
+
+        /* IMPRESSÃO ISOLADA */
+        @media print {
+            body { background: white !important; padding: 0 !important; color: #000 !important; }
+            .no-print, .excel-actions, .controls, .card, button, .actions-cell, .login-overlay, .modal, .btn-mini, .alphabet-filter, .bg-picker-wrapper { display: none !important; }
+            .container { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            
+            body.printing-relatorio .print-header-minimal { display: block !important; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+            body.printing-relatorio .print-header-minimal h1 { font-size: 1.2rem; text-transform: uppercase; color: #0f172a; }
+            body.printing-relatorio .print-header-minimal h2 { font-size: 0.9rem; color: #475569; font-weight: 500; }
+            body.printing-relatorio .print-meta { font-size: 0.75rem; color: #64748b; margin-top: 8px; display: flex; justify-content: space-between; border-top: 1px dashed #e2e8f0; padding-top: 6px; }
+            body.printing-relatorio table { display: table !important; width: 100% !important; border: 1px solid #000 !important; margin-top: 10px; }
+            body.printing-relatorio th { background: #f1f5f9 !important; color: #0f172a !important; border: 1px solid #000 !important; font-size: 0.75rem !important; text-transform: uppercase; }
+            body.printing-relatorio td { border: 1px solid #000 !important; font-size: 0.75rem !important; padding: 6px !important; vertical-align: top; }
+            body.printing-relatorio .setor-badge { border: 1px solid #000; color: #000 !important; background: transparent !important; font-weight: normal; }
+            body.printing-relatorio .history-list { border: none; padding: 0; background: transparent; }
+        }
+        
+        .print-header-minimal { display: none; }
+
+        /* UX / Dashboard / Mobile */
+        .quick-nav { display:flex; gap:8px; flex-wrap:wrap; margin:-4px 0 16px; }
+        .quick-nav .btn { font-size:.8rem; }
+        .dashboard-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+        .metric-card { border:1px solid var(--border); border-radius:12px; padding:15px; box-shadow:var(--shadow); cursor:pointer; transition:.18s; min-height:105px; }
+        .metric-card:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(15,23,42,.1); }
+        .metric-label { font-size:.76rem; text-transform:uppercase; color:var(--muted); font-weight:700; }
+        .metric-value { font-size:1.7rem; line-height:1.15; font-weight:850; margin:8px 0 4px; }
+        .metric-sub { font-size:.76rem; color:var(--muted); }
+        .metric-danger { border-top:4px solid #dc2626; }
+        .metric-warning { border-top:4px solid #f59e0b; }
+        .metric-info { border-top:4px solid #2563eb; }
+        .metric-success { border-top:4px solid #16a34a; }
+        .metric-purple { border-top:4px solid #7c3aed; }
+        .metric-dark { border-top:4px solid #475569; }
+        .home-grid { display:grid; grid-template-columns:1.3fr .7fr; gap:16px; margin-bottom:18px; }
+        .panel { border:1px solid var(--border); border-radius:12px; padding:18px; box-shadow:var(--shadow); }
+        .panel h3 { margin-bottom:12px; font-size:1rem; }
+        .priority-list { display:flex; flex-direction:column; gap:8px; }
+        .priority-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border:1px solid var(--border); border-radius:9px; background:#fbfdff; cursor:pointer; }
+        .priority-main { min-width:0; }
+        .priority-title { font-weight:750; font-size:.88rem; }
+        .priority-meta { color:var(--muted); font-size:.75rem; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .priority-tag { flex:0 0 auto; font-size:.72rem; font-weight:800; padding:5px 8px; border-radius:999px; }
+        .tag-danger { background:#fee2e2; color:#b91c1c; }
+        .tag-warning { background:#fef3c7; color:#a16207; }
+        .tag-info { background:#dbeafe; color:#1d4ed8; }
+        .tag-success { background:#dcfce7; color:#15803d; }
+        .empty-state { padding:24px; text-align:center; color:var(--muted); font-size:.85rem; }
+        .notification-panel { position:fixed; top:72px; right:18px; width:min(420px,calc(100vw - 28px)); max-height:70vh; overflow:auto; background:#fff; border:1px solid var(--border); border-radius:14px; box-shadow:0 22px 50px rgba(15,23,42,.18); z-index:150; display:none; }
+        .notification-panel.open { display:block; }
+        .notification-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; background:#fff; }
+        .notification-item { padding:12px 16px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+        .notification-item:hover { background:#f8fafc; }
+        .notification-item:last-child { border-bottom:none; }
+        .notif-title { font-weight:750; font-size:.84rem; }
+        .notif-meta { margin-top:3px; font-size:.75rem; color:var(--muted); }
+        .notif-badge { min-width:21px; height:21px; padding:0 6px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; background:#dc2626; color:#fff; font-size:.7rem; font-weight:800; }
+        .data-health { display:flex; gap:8px; flex-wrap:wrap; font-size:.75rem; color:var(--muted); }
+        .health-pill { background:#f1f5f9; padding:6px 9px; border-radius:999px; }
+
+       /* Campo de Frases Motivacionais */
+        .panel-right-flex {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .motivational-box {
+            margin-top: 18px;
+            padding: 16px;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+            border: 1px solid #dbeafe;
+            border-left: 4px solid var(--primary);
+            border-radius: 10px;
+        }
+        .motivational-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .motivational-title {
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--primary-dark);
+            letter-spacing: 0.03em;
+        }
+        .motivational-quote {
+            font-size: 0.9rem;
+            font-style: italic;
+            color: #1e293b;
+            line-height: 1.5;
+            margin-bottom: 6px;
+        }
+        .motivational-author {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-align: right;
+        }
+        
+        @media (max-width:1050px){ .dashboard-grid{grid-template-columns:repeat(3,minmax(0,1fr));} .home-grid{grid-template-columns:1fr;} }
+        @media (max-width:700px){
+            body{padding:10px;} .dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;} .metric-card{min-height:95px;padding:12px;} .metric-value{font-size:1.45rem;} .home-grid{gap:10px;} .panel{padding:14px;} .quick-nav{overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px;} .quick-nav .btn{flex:0 0 auto;}
+            .header-official{padding:14px;} .header-official > div:last-child{width:100%;} .header-official > div:last-child .btn{flex:1;}
+            #mainTable{display:block; overflow-x:auto; white-space:nowrap;} #mainTable th,#mainTable td{min-width:120px;} #mainTable th:nth-child(3),#mainTable td:nth-child(3){min-width:220px;} #mainTable th:nth-child(9),#mainTable td:nth-child(9){min-width:170px;}
+        }
+    </style>
+</head>
+<body>
+
+<!-- Tela de Login -->
+<div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+        <h2 style="margin-bottom: 5px; color: #1e293b;">🏛️ Acesso ao Sistema</h2>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 20px;">Almoxarifado da Saúde — Avaré</p>
+        <form onsubmit="event.preventDefault(); fazerLoginManual();">
+            <div style="margin-bottom: 15px;">
+                <label for="loginUsuario">E-mail institucional</label>
+                <input type="email" id="loginUsuario" value="" placeholder="nome@exemplo.gov.br" autocomplete="username" required>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label for="loginSenha">Senha</label>
+                <input type="password" id="loginSenha" value="" placeholder="Digite sua senha" autocomplete="current-password" required>
+            </div>
+            <button type="submit" style="width: 100%; padding: 10px;">Entrar no Sistema</button>
+        </form>
+    </div>
+</div>
+
+<div class="container">
+
+<!-- Cabeçalho do Relatório Minimalista -->
+<div id="printHeaderMinimal" class="print-header-minimal">
+    <h1>Prefeitura da Estância Turística de Avaré</h1>
+    <h2>Relatório Gerencial de Autorizações de Fornecimento (AF) — Almoxarifado da Saúde</h2>
+    <div class="print-meta">
+        <span>Filtro Aplicado: <strong id="printFiltroNome">Todas as AFs</strong></span>
+        <span>Emitido por: <strong id="printUsuario">-</strong> | <span id="printDataHora">-</span></span>
+    </div>
+</div>
+
+<!-- Cabeçalho Oficial Web -->
+<div id="mainHeader" class="header-official">
+    <div>
+        <h1>Prefeitura da Estância Turística de Avaré</h1>
+        <h2>Almoxarifado da Saúde — Controle Interno de AFs</h2>
+    </div>
+    <div class="no-print" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <span class="status-online"><span class="status-dot"></span> <span id="loggedUserName">Usuário</span></span>
+        
+        <!-- Novo Seletor de Cor de Fundo -->
+        <div class="bg-picker-wrapper" title="Alterar cor de fundo do site">
+            <span>🎨 Fundo:</span>
+            <input type="color" id="bgColorPicker" value="#f1f5f9" oninput="mudarCorFundo(this.value)">
+            <button type="button" class="btn-reset-bg" onclick="resetarCorFundo()" title="Restaurar cor padrão">↺</button>
+        </div>
+
+        <button type="button" class="btn" style="background: #334155;" onclick="openModalConfig()">⚙️ Configurações</button>
+        <button type="button" class="btn" style="background: #475569;" onclick="openModalLogs()">📜 Histórico / Logs</button>
+        <button type="button" class="btn" style="background: #0284c7;" onclick="openModalSetores()">🎨 Setores</button>
+        <button type="button" class="btn" style="background: #0d9488;" onclick="openModalFornecedores()">📖 Fornecedores</button>
+        <button type="button" class="btn" style="background: #8b5cf6;" onclick="openModalUsuarios()">👥 Funcionários</button>
+        <button type="button" class="btn btn-outline" onclick="openModalRelatorio()">🖨️ Relatórios</button>
+        <button type="button" class="btn btn-outline" style="color: #ef4444;" onclick="logout()">Sair</button>
+    </div>
+</div>
+
+<div class="quick-nav no-print" id="quickNav">
+    <button class="btn" type="button" onclick="scrollToSection('mainCardForm')">➕ Nova AF</button>
+    <button class="btn btn-outline" type="button" onclick="focusSearch()">🔎 Buscar AF</button>
+    <button class="btn btn-outline" type="button" onclick="openModalFornecedores()">📖 Contatos</button>
+    <button class="btn btn-outline" type="button" onclick="openNotifications()">🔔 Notificações <span id="notifBadge" class="notif-badge" style="display:none;margin-left:3px;">0</span></button>
+    <button class="btn btn-outline" type="button" onclick="openModalRelatorio()">📊 Relatórios</button>
+</div>
+
+<div id="notificationPanel" class="notification-panel no-print">
+    <div class="notification-head"><strong>🔔 Alertas e próximas ações</strong><button class="btn btn-outline btn-mini" type="button" onclick="closeNotifications()">✕</button></div>
+    <div id="notificationList"></div>
+</div>
+
+<div class="dashboard-grid no-print" id="v2Dashboard">
+    <div class="metric-card metric-danger" onclick="applyStatusQuickFilter('Cobrado')">
+        <div class="metric-label">🔴 Atrasadas</div><div class="metric-value" id="v2Atrasadas">0</div><div class="metric-sub">Precisam de cobrança</div>
+    </div>
+    <div class="metric-card metric-warning" onclick="filterToday()">
+        <div class="metric-label">🟡 Vencem hoje</div><div class="metric-value" id="v2Hoje">0</div><div class="metric-sub">Prazo final hoje</div>
+    </div>
+    <div class="metric-card metric-info" onclick="applyStatusQuickFilter('Entrega Parcial')">
+        <div class="metric-label">📦 Parciais</div><div class="metric-value" id="v2Parciais">0</div><div class="metric-sub">Aguardam conclusão</div>
+    </div>
+    <div class="metric-card metric-purple" onclick="applyStatusQuickFilter('Notificado')">
+        <div class="metric-label">⚠️ Sanções</div><div class="metric-value" id="v2Sancoes">0</div><div class="metric-sub">Notificado/advertido/multado</div>
+    </div>
+    <div class="metric-card metric-success" onclick="applyStatusQuickFilter('Entregue')">
+        <div class="metric-label">✅ Concluídas</div><div class="metric-value" id="v2Entregues">0</div><div class="metric-sub">AFs entregues</div>
+    </div>
+    <div class="metric-card metric-dark">
+        <div class="metric-label">💰 Saldo pendente</div><div class="metric-value" id="v2Pendente">R$ 0,00</div><div class="metric-sub">Valor ainda não entregue</div>
+    </div>
+</div>
+
+<div class="home-grid no-print">
+    <!-- Coluna Esquerda: Briefing Matinal de Gargalos com IA -->
+    <div class="panel" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%) !important; border-left: 5px solid #7c3aed;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.25rem;">🤖</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e293b;">Briefing Inteligente do Dia</h3>
+                    <span id="iaBriefingSub" style="font-size: 0.75rem; color: #64748b;">Análise automática de gargalos e prioridades</span>
+                </div>
+            </div>
+            <button type="button" id="btnAtualizarBriefing" class="btn btn-outline btn-mini" onclick="gerarBriefingGargalosIA(true)" style="background: #fff; font-weight: 700; padding: 5px 10px;">
+                🔄 Atualizar
+            </button>
+        </div>
+        <div id="iaBriefingConteudo" style="font-size: 0.88rem; color: #334155; line-height: 1.65;">
+            ⏳ Carregando dados das AFs para gerar o diagnóstico...
+        </div>
+    </div>
+
+    <!-- Coluna Direita: Resumo da Base + Inspiração do Dia -->
+    <div class="panel panel-right-flex">
+        <div>
+            <h3>📊 Resumo da base</h3>
+            <div id="dataHealth" class="data-health"></div>
+            <div style="margin-top:14px; font-size:.8rem; color:#475569; line-height:1.6;">
+                O painel é atualizado sempre que os registros do Supabase são recarregados. Use os indicadores acima como atalhos para os filtros.
+            </div>
+        </div>
+
+        <!-- Campo de Frases Motivacionais com IA -->
+        <div class="motivational-box">
+            <div class="motivational-header">
+                <span class="motivational-title">💡 Inspiração do Dia</span>
+                <button type="button" class="btn btn-outline btn-mini" onclick="sortearFraseMotivacional(true)" title="Gerar nova frase com IA">🔄 Nova frase</button>
+            </div>
+            <p id="fraseTexto" class="motivational-quote">✨ Aguardando carregamento...</p>
+            <div id="fraseAutor" class="motivational-author"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Formulário de Cadastro / Edição -->
+<div id="mainCardForm" class="card no-print">
+    <h3 id="formTitle">Cadastrar Nova Autorização</h3>
+    <br>
+
+    <!-- Área de Importação Inteligente de PDF -->
+    <div style="background: #f0f9ff; border: 2px dashed #38bdf8; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+      <div>
+        <strong style="color: #0369a1; font-size: 0.95rem; display: block;">✨ Preenchimento Automático com IA</strong>
+        <span style="color: #475569; font-size: 0.8rem;">Suba o PDF da AF ou Nota de Empenho para preencher os campos sozinho.</span>
+      </div>
+      
+      <div>
+        <input type="file" id="input-pdf-af" accept="application/pdf" style="display: none;" onchange="processarPdfComIA(event)">
+        <button type="button" id="btn-importar-pdf-af" onclick="document.getElementById('input-pdf-af').click()" style="background: #0284c7; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">
+          📄 Importar PDF da AF
+        </button>
+      </div>
+    </div>
+
+    <form id="afForm">
+        <input type="hidden" id="editAfId" value="">
+        <div class="form-grid">
+            <div>
+                <label>Nº da AF / Processo</label>
+                <input type="text" id="numAf" required placeholder="Ex: AF 11919/26">
+            </div>
+            <div>
+                <label>Nº do Empenho (Opcional)</label>
+                <input type="text" id="numEmpenho" placeholder="Ex: 00402/26">
+            </div>
+            <div>
+                <label>Setor Responsável</label>
+                <select id="setor" required></select>
+            </div>
+            <div>
+                <label>Fornecedor (Sugestão da agenda)</label>
+                <input type="text" id="fornecedor" list="fornecedoresDatalist" required placeholder="Razão Social ou Nome Fantasia">
+                <datalist id="fornecedoresDatalist"></datalist>
+            </div>
+            <div>
+                <label>Valor Total da AF (R$)</label>
+                <input type="number" step="0.01" id="valorTotal" placeholder="0.00">
+            </div>
+            <div>
+                <label>Vigência da Ata/Contrato (Opcional)</label>
+                <input type="date" id="vigenciaAta">
+            </div>
+            <div>
+                <label>Prazo de Entrega Limite</label>
+                <input type="date" id="prazoEntrega" required>
+            </div>
+            <div>
+                <label>Status Inicial</label>
+                <select id="statusSancao">
+                    <option value="Regular">Em Dia / Regular</option>
+                    <option value="Cobrado">Cobrar Fornecedor</option>
+                    <option value="Notificado">Notificado</option>
+                    <option value="Advertido">Advertido</option>
+                    <option value="Multado">Multado</option>
+                    <option value="Entrega Parcial">Entrega Parcial</option>
+                    <option value="Saldo Cancelado">Saldo Cancelado</option>
+                    <option value="Entregue">Concluído / Entregue</option>
+                </select>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label>Produtos / Serviços que compõem a AF</label>
+            <textarea id="produtosText" rows="3" placeholder="Descrição do produto ou prestação de serviço..."></textarea>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label>Observações / Motivo da Sanção (Opcional)</label>
+            <textarea id="observacoes" rows="2" placeholder="Histórico de ligações, falta de insumos no fabricante, ofícios..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" id="btnSubmitForm">Salvar AF</button>
+            <button type="button" id="btnCancelEdit" class="btn-outline" style="display: none;" onclick="resetForm()">Cancelar Edição</button>
+        </div>
+    </form>
+</div>
+
+<!-- Seção de Importação e Exportação Excel -->
+<div id="mainExcelActions" class="excel-actions no-print">
+    <div class="controls-group">
+        <strong>📥 Importar / Exportar:</strong>
+        <input type="file" id="excelFileInput" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, .csv" style="display: none;" onchange="importExcel(event)">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('excelFileInput').click()">📁 Selecionar Planilha</button>
+        <button type="button" class="btn btn-outline" onclick="downloadModelo()">📄 Modelo Excel</button>
+    </div>
+    <div class="controls-group">
+        <button type="button" class="btn btn-success" onclick="exportExcel()">📊 Exportar para Excel</button>
+    </div>
+</div>
+
+<!-- Barra de Filtro Alfabético -->
+<div id="alphabetContainer" class="alphabet-filter no-print">
+    <span style="font-size: 0.8rem; font-weight: bold; color: #475569; margin-right: 4px;">Letra:</span>
+    <button type="button" class="alphabet-btn active" onclick="setLetterFilter('')">TODAS</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('A')">A</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('B')">B</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('C')">C</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('D')">D</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('E')">E</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('F')">F</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('G')">G</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('H')">H</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('I')">I</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('J')">J</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('K')">K</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('L')">L</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('M')">M</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('N')">N</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('O')">O</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('P')">P</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('Q')">Q</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('R')">R</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('S')">S</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('T')">T</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('U')">U</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('V')">V</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('W')">W</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('X')">X</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('Y')">Y</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('Z')">Z</button>
+    <button type="button" class="alphabet-btn" onclick="setLetterFilter('0-9')">0-9</button>
+</div>
+
+<!-- Funcionalidade 4: Copiloto de Consulta Rápida ("Pergunte ao Almoxarifado") -->
+<div class="card no-print" style="background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%) !important; border: 1px solid #bfdbfe; border-left: 5px solid #2563eb; padding: 14px 18px; margin-bottom: 15px;">
+    <form onsubmit="event.preventDefault(); perguntarAoAlmoxarifadoIA();" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <span style="font-size: 1.15rem;">💬</span>
+        <input type="text" id="inputPerguntaIA" placeholder="Pergunte à IA sobre as AFs (ex: Quais AFs estão atrasadas? Quanto falta da Medilar? Tem AF de luva?)" style="flex: 1; min-width: 260px; background: #fff; border: 1px solid #93c5fd;">
+        <button type="submit" id="btnPerguntarIA" style="background: #1d4ed8; padding: 9px 16px;">✨ Perguntar à IA</button>
+        <button type="button" id="btnLimparPerguntaIA" class="btn btn-outline" style="display: none; background: #fff;" onclick="limparRespostaIA()">✕ Limpar</button>
+    </form>
+    <div id="boxRespostaIA" style="display: none; margin-top: 12px; padding: 12px 14px; background: #fff; border-radius: 8px; border: 1px solid #dbeafe; font-size: 0.88rem; color: #1e293b; line-height: 1.6;"></div>
+</div>
+    
+<!-- Controles de Filtro e Ordenação -->
+<div id="mainControls" class="controls no-print">
+    <div class="controls-group">
+        <label>Filtrar Setor:</label>
+        <select id="filterSetor" onchange="renderTable()">
+            <option value="TODOS">Todos os Setores</option>
+        </select>
+
+        <label>Status:</label>
+        <select id="filterStatus" onchange="renderTable()">
+            <option value="ATIVOS">Apenas AFs Ativas (Oculta Entregues > 24h)</option>
+            <option value="TODOS">Todas (Incluindo Histórico de Entregues)</option>
+        </select>
+
+        <label>Buscar:</label>
+        <input type="text" id="searchInput" placeholder="Fornecedor, Nº AF, Produto..." oninput="renderTable()">
+    </div>
+
+    <div class="controls-group">
+        <label>Ordenar por:</label>
+        <select id="sortSelect" onchange="renderTable()">
+            <option value="prazo">Prazo de Entrega (Próximos/Atrasados)</option>
+            <option value="fornecedor">Fornecedor (A-Z)</option>
+            <option value="vigencia">Vigência da Ata (Próximos do Vencimento)</option>
+            <option value="criacao">Data de Criação (Recentes)</option>
+        </select>
+    </div>
+</div>
+
+<!-- Tabela de Registros -->
+<table id="mainTable">
+    <thead>
+        <tr>
+            <th>Setor</th>
+            <th>Nº AF / Empenho</th>
+            <th>Fornecedor / Produtos</th>
+            <th>Valores (R$)</th>
+            <th>Vigência Ata</th>
+            <th>Prazo Entrega / Alerta</th>
+            <th>Entregas Parciais / Saldo</th>
+            <th>Histórico & Cobranças</th>
+            <th>Situação & Obs Sanção</th>
+            <th class="no-print">Ações</th>
+        </tr>
+    </thead>
+    <tbody id="afTableBody"></tbody>
+</table>
+
+</div>
+
+<!-- Modais do Sistema -->
+<div id="modalFornecedores" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3>📖 Agenda de Contatos de Fornecedores</h3>
+            <button type="button" class="btn btn-outline btn-mini" onclick="closeModalFornecedores()">✕</button>
+        </div>
+
+        <form id="fornecedorForm" style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
+            <input type="hidden" id="editFornId" value="">
+            <div class="form-grid">
+                <div>
+                    <label>Razão Social / Nome Fantasia *</label>
+                    <input type="text" id="fornRazao" required placeholder="Ex: Farmacêutica Alpha LTDA">
+                </div>
+                <div>
+                    <label>CNPJ</label>
+                    <input type="text" id="fornCnpj" placeholder="00.000.000/0000-00">
+                </div>
+                <div>
+                    <label>Representante / Vendedor</label>
+                    <input type="text" id="fornContato" placeholder="Ex: Carlos (Comercial)">
+                </div>
+                <div>
+                    <label>Telefone / WhatsApp</label>
+                    <input type="text" id="fornTelefone" placeholder="(14) 99999-9999">
+                </div>
+                <div>
+                    <label>E-mails de Contato (separe por vírgula)</label>
+                    <input type="text" id="fornEmail" placeholder="vendas@empresa.com, financeiro@empresa.com">
+                </div>
+                <div>
+                    <label>Observações / Insumos Principais</label>
+                    <input type="text" id="fornObs" placeholder="Ex: Medicamentos básicos, prazo bom">
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button type="submit" class="btn btn-success" id="btnSalvarForn">Salvar Fornecedor</button>
+                <button type="button" id="btnCancelForn" class="btn-outline" style="display:none;" onclick="resetFornForm()">Cancelar</button>
+            </div>
+        </form>
+
+        <div style="margin-bottom: 12px;">
+            <input type="text" id="buscaFornecedor" placeholder="🔎 Filtrar fornecedor, CNPJ, representante ou insumo..." oninput="renderFornecedoresTable()">
+        </div>
+
+        <div style="max-height: 350px; overflow-y: auto;">
+            <table style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Fornecedor</th>
+                        <th>Contato</th>
+                        <th>Canais Diretos</th>
+                        <th>Observações</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="fornecedoresTableBody"></tbody>
+            </table>
+        </div>
+        <div style="margin-top: 15px; text-align: right;">
+            <button type="button" class="btn-outline" onclick="closeModalFornecedores()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalAnexoNotificacao" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+        <h3>📎 Anexar Notificação (PDF)</h3>
+        <br>
+        <input type="hidden" id="anexoAfId">
+        <div style="margin-bottom: 15px;">
+            <label>Selecione o arquivo PDF</label>
+            <input type="file" id="arquivoNotificacaoInput" accept="application/pdf" style="padding: 6px;">
+        </div>
+        <div id="anexoAtualContainer" style="display:none; margin-bottom: 15px; font-size: 0.85rem;">
+            <span>Documento atual: </span>
+            <a id="anexoAtualLink" href="#" target="_blank" style="color: var(--primary); font-weight: bold; text-decoration: underline;">📄 Ver PDF anexado</a>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-outline" onclick="closeModalAnexo()">Cancelar</button>
+            <button type="button" class="btn btn-success" id="btnSalvarAnexo" onclick="salvarAnexoNotificacao()">Salvar PDF</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConfig" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <h3>⚙️ Configurações Gerais do Sistema</h3>
+        <br>
+        <form id="configForm">
+            <div style="margin-bottom: 12px;">
+                <label>Nome do Município / Órgão</label>
+                <input type="text" id="cfgPrefeitura" required>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label>CNPJ Oficial</label>
+                <input type="text" id="cfgCnpj" required>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label>Departamento / Secretaria</label>
+                <input type="text" id="cfgDepto" required>
+            </div>
+            <div class="form-grid" style="margin-bottom: 15px;">
+                <div>
+                    <label>Prazo Padrão (Dias)</label>
+                    <input type="number" id="cfgPrazoPadrao" required>
+                </div>
+                <div>
+                    <label>Ocultar Concluídas (Horas)</label>
+                    <input type="number" id="cfgHorasOcultar" required>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn-outline" onclick="closeModalConfig()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Salvar Configurações</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modalObsSancao" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+        <h3>📝 Registrar Detalhes / Obs da Sanção</h3>
+        <br>
+        <input type="hidden" id="obsSancaoAfId">
+        <input type="hidden" id="obsSancaoNovoStatus">
+        <div style="margin-bottom: 15px;">
+            <label>Observação da Penalidade / Tramitação</label>
+            <textarea id="obsSancaoTexto" rows="3" placeholder="Ex: Ofício enviado dia 03/08..."></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-outline" onclick="closeModalObsSancao()">Cancelar</button>
+            <button type="button" class="btn btn-success" onclick="saveObsSancao()">Salvar Sanção</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalCancelarSaldo" class="modal">
+    <div class="modal-content" style="max-width: 480px;">
+        <h3>🚫 Cancelar Saldo Restante da AF</h3>
+        <br>
+        <input type="hidden" id="cancelSaldoAfId">
+        <div style="margin-bottom: 12px;">
+            <label>Valor a Cancelar (R$ Saldo Restante)</label>
+            <input type="number" step="0.01" id="cancelSaldoValor" readonly style="background: #f1f5f9;">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label>Motivo do Cancelamento de Saldo</label>
+            <textarea id="cancelSaldoMotivo" rows="2" required placeholder="Ex: Falta de matéria-prima..."></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-outline" onclick="closeModalCancelarSaldo()">Voltar</button>
+            <button type="button" class="btn btn-delete" onclick="saveCancelarSaldo()">Confirmar Cancelamento de Saldo</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalLogs" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <h3>📜 Histórico Completo de Auditoria (Logs)</h3>
+        <br>
+        <div style="max-height: 350px; overflow-y: auto;">
+            <table style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Funcionário</th>
+                        <th>Ação Realizada</th>
+                        <th>Nº AF Ref.</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTableBody"></tbody>
+            </table>
+        </div>
+        <div style="margin-top: 20px; text-align: right;">
+            <button type="button" class="btn-outline" onclick="closeModalLogs()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalRelatorio" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+        <h3>🖨️ Emitir Relatório Personalizado</h3>
+        <br>
+        <div style="margin-bottom: 15px;">
+            <label>Tipo de Relatório</label>
+            <select id="relatorioTipo" onchange="toggleRelatorioSetorSelect()">
+                <option value="TODAS">Todas as AFs Cadastradas</option>
+                <option value="ATRASADAS">Apenas AFs Atrasadas / Sanções</option>
+                <option value="ENTREGUES">Apenas AFs Concluídas / Entregues</option>
+                <option value="SETOR">Filtrar por Setor Específico...</option>
+            </select>
+        </div>
+        <div id="relatorioSetorContainer" style="margin-bottom: 15px; display: none;">
+            <label>Selecione o Setor</label>
+            <select id="relatorioSetorSelect"></select>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-outline" onclick="closeModalRelatorio()">Cancelar</button>
+            <button type="button" class="btn" style="background: var(--primary);" onclick="confirmarEImprimirRelatorio()">🖨️ Imprimir / Salvar PDF</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalSetores" class="modal">
+    <div class="modal-content">
+        <h3>🎨 Gestão de Setores e Cores</h3>
+        <br>
+        <form id="setorAddForm" style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
+            <input type="hidden" id="editSetorId" value="">
+            <div class="form-grid">
+                <div>
+                    <label>Nome do Setor</label>
+                    <input type="text" id="setorNome" required placeholder="Ex: Farmácia Judicial">
+                </div>
+                <div>
+                    <label>Cor do Destaque (Badge)</label>
+                    <input type="color" id="setorCor" value="#2563eb" style="height: 38px; padding: 2px;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button type="submit" class="btn btn-success" style="width: 100%;">Salvar Setor</button>
+                <button type="button" id="btnCancelSetorEdit" class="btn-outline" style="display:none;" onclick="resetSetorForm()">Cancelar</button>
+            </div>
+        </form>
+
+        <h4>Setores Ativos:</h4>
+        <div style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+            <table style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Identificador</th>
+                        <th>Cor</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="setoresTableBody"></tbody>
+            </table>
+        </div>
+        <div style="margin-top: 20px; text-align: right;">
+            <button type="button" class="btn-outline" onclick="closeModalSetores()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalUsuarios" class="modal">
+    <div class="modal-content">
+        <h3>👥 Gestão de Funcionários do Almoxarifado</h3>
+        <br>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:14px;border-radius:8px;margin-bottom:18px;line-height:1.5;">
+            <strong>Cadastro seguro de funcionários</strong><br>
+            As contas agora são criadas em <b>Supabase → Authentication → Users</b>. Cadastre o e-mail institucional e envie o convite/defina a senha. Depois, o perfil e o cargo devem ser atribuídos na tabela <code>perfis_usuarios</code>.
+            <br><small>Não cadastre senhas nesta tela. A tabela antiga <code>usuarios</code> será descontinuada após a migração dos acessos.</small>
+        </div>
+
+        <h4>Funcionários Cadastrados:</h4>
+        <div style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+            <table style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Cargo / Perfil</th>
+                    </tr>
+                </thead>
+                <tbody id="usuariosTableBody"></tbody>
+            </table>
+        </div>
+        <div style="margin-top: 20px; text-align: right;">
+            <button type="button" class="btn-outline" onclick="closeModalUsuarios()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalCobranca" class="modal">
+    <div class="modal-content" style="max-width: 580px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3>📞 Registrar & Gerar Cobrança</h3>
+            <button type="button" class="btn btn-outline btn-mini" onclick="closeModalCobranca()">✕</button>
+        </div>
+
+        <input type="hidden" id="cobrancaAfId">
+
+        <!-- Bloco Gerador de Mensagem com IA -->
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                <strong style="font-size: 0.85rem; color: #0369a1;">✨ Mensagem Formal de Cobrança (IA)</strong>
+                <div style="display: flex; gap: 6px;">
+                    <select id="cobrancaTom" style="width: auto; padding: 4px 8px; font-size: 0.78rem;">
+                        <option value="amigavel">1º Aviso (Cordial)</option>
+                        <option value="firme">2º Aviso (Firme / Urgente)</option>
+                        <option value="notificacao">Último Aviso (Pré-Notificação/Sanção)</option>
+                    </select>
+                    <button type="button" id="btnGerarTextoCobranca" class="btn btn-mini" style="background: #0284c7; padding: 5px 10px; font-size: 0.78rem;" onclick="gerarMensagemCobrancaIA()">
+                        ✨ Gerar Texto
+                    </button>
+                </div>
+            </div>
+
+            <textarea id="textoCobrancaGerado" rows="6" placeholder="Clique em '✨ Gerar Texto' para a IA redigir a cobrança oficial com os dados desta AF, itens e dias de atraso..." style="font-size: 0.83rem; background: #fff; margin-bottom: 8px;"></textarea>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline btn-mini" onclick="copiarTextoCobranca()">📋 Copiar Texto</button>
+                <button type="button" class="btn btn-success btn-mini" onclick="enviarCobrancaWhatsApp()">💬 Abrir no WhatsApp</button>
+                <button type="button" class="btn btn-mini" style="background: #334155;" onclick="enviarCobrancaEmail()">✉️ Abrir E-mail</button>
+            </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 14px 0;">
+
+        <div class="form-grid" style="margin-bottom: 10px;">
+            <div>
+                <label>Data do Registro no Sistema</label>
+                <input type="date" id="cobrancaData" required>
+            </div>
+            <div>
+                <label>Resumo para o Histórico da Tabela</label>
+                <input type="text" id="cobrancaObs" placeholder="Ex: Cobrado via WhatsApp / E-mail">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px;">
+            <button type="button" class="btn-outline" onclick="closeModalCobranca()">Cancelar</button>
+            <button type="button" class="btn-success" onclick="saveCobranca()">💾 Salvar Cobrança no Histórico</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Registrar / Editar Entrega Parcial -->
+<div id="modalParcial" class="modal">
+    <div class="modal-content">
+        <h3 id="modalParcialTitle">📦 Registrar Entrega Parcial</h3>
+        <br>
+        <input type="hidden" id="modalAfId">
+        <input type="hidden" id="modalParcialIndex" value="-1">
+        <div style="margin-bottom: 10px;">
+            <label>Nº da Nota Fiscal (NF)</label>
+            <input type="text" id="parcialNf" required placeholder="Ex: NF 12345">
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label>Valor da Entrega (R$)</label>
+            <input type="number" step="0.01" id="parcialValor" required placeholder="0.00">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label>Data da Entrega</label>
+            <input type="date" id="parcialData" required>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-outline" onclick="closeModalParcial()">Cancelar</button>
+            <button type="button" class="btn-success" onclick="saveParcial()">Salvar Entrega</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://adunochvwwfynngzsszg.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_wzosuw4QDpJfthg3pPpE3g_wv8GwNw6";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+
+    /* ====== CONTROLE DE COR DE FUNDO ====== */
+    const COR_FUNDO_PADRAO = '#f1f5f9';
+
+    function mudarCorFundo(cor) {
+        document.documentElement.style.setProperty('--page-bg', cor);
+        localStorage.setItem('af_system_bg_color', cor);
+        const picker = document.getElementById('bgColorPicker');
+        if (picker && picker.value !== cor) picker.value = cor;
+    }
+
+    function resetarCorFundo() {
+        mudarCorFundo(COR_FUNDO_PADRAO);
+    }
+
+    function carregarCorFundoSalva() {
+        const corSalva = localStorage.getItem('af_system_bg_color');
+        if (corSalva) {
+            mudarCorFundo(corSalva);
+        }
+    }
+    carregarCorFundoSalva();
+
+    let afs = [];
+    let setores = [];
+    let fornecedoresList = [];
+    let selectedLetter = '';
+    let configSys = {
+        nome_prefeitura: 'PREFEITURA DA ESTÂNCIA TURÍSTICA DE AVARÉ',
+        cnpj_prefeitura: '46.634.168/0001-50',
+        departamento: 'SECRETARIA MUNICIPAL DA SAÚDE — ALMOXARIFADO DA SAÚDE',
+        prazo_padrao_dias: 15,
+        horas_ocultar_entregue: 24,
+        gemini_api_key: ''
+    };
+
+    let usuarioLogado = null;
+
+    async function obterPerfilUsuario(authUser) {
+        if (!authUser) return null;
+        const { data: perfil, error } = await _supabase
+            .from('perfis_usuarios')
+            .select('id,nome,cargo,papel,ativo')
+            .eq('id', authUser.id)
+            .maybeSingle();
+        if (error) throw error;
+        if (perfil && perfil.ativo === false) {
+            await _supabase.auth.signOut();
+            throw new Error('Este acesso está desativado. Procure o administrador do sistema.');
+        }
+        const meta = authUser.user_metadata || {};
+        return {
+            id: authUser.id,
+            email: authUser.email || '',
+            nome: (perfil && perfil.nome) || meta.nome || authUser.email || 'Usuário',
+            cargo: (perfil && perfil.cargo) || meta.cargo || 'Almoxarifado da Saúde',
+            papel: (perfil && perfil.papel) || 'operador'
+        };
+    }
+
+    async function restaurarSessaoAFs() {
+        try {
+            const { data, error } = await _supabase.auth.getSession();
+            if (error) throw error;
+            if (data.session?.user) {
+                usuarioLogado = await obterPerfilUsuario(data.session.user);
+                fecharTelaLogin(usuarioLogado.nome);
+                await initApp();
+            }
+        } catch (error) {
+            console.error('Falha ao restaurar sessão:', error);
+            alert(error.message || 'Não foi possível validar sua sessão.');
+        }
+    }
+    restaurarSessaoAFs();
+
+    async function fazerLoginManual() {
+        const email = (document.getElementById('loginUsuario').value || '').trim().toLowerCase();
+        const password = document.getElementById('loginSenha').value || '';
+        if (!email || !password) {
+            alert('Preencha e-mail e senha.');
+            return;
+        }
+        try {
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            usuarioLogado = await obterPerfilUsuario(data.user);
+            fecharTelaLogin(usuarioLogado.nome);
+            await initApp();
+        } catch (err) {
+            console.error('Erro no login:', err);
+            alert('Não foi possível entrar. Confira o e-mail e a senha ou procure o administrador.');
+        }
+    }
+
+    async function logout() {
+        const { error } = await _supabase.auth.signOut();
+        if (error) alert('Não foi possível encerrar a sessão: ' + error.message);
+        usuarioLogado = null;
+        const overlay = document.getElementById('loginOverlay');
+        if (overlay) overlay.style.display = 'flex';
+        const header = document.getElementById('mainHeader');
+        if (header) header.style.display = 'none';
+        location.reload();
+    }
+
+    async function initApp() {
+        try { 
+            await fetchConfig(); 
+            sortearFraseMotivacional(false);
+        } catch(e) { console.error("Erro config:", e); }
+        try { await fetchSetores(); } catch(e) { console.error("Erro setores:", e); }
+        try { await fetchFornecedores(); } catch(e) { console.error("Erro fornecedores:", e); }
+        try { await fetchAfs(); } catch(e) { console.error("Erro AFs:", e); }
+    }
+
+    async function fetchConfig() {
+        const { data, error } = await _supabase.from('configuracoes').select('id,nome_prefeitura,cnpj_prefeitura,departamento,prazo_padrao_dias,horas_ocultar_entregue').eq('id', 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            configSys = data[0];
+        }
+        document.getElementById('cfgPrefeitura').value = configSys.nome_prefeitura || '';
+        document.getElementById('cfgCnpj').value = configSys.cnpj_prefeitura || '';
+        document.getElementById('cfgDepto').value = configSys.departamento || '';
+        document.getElementById('cfgPrazoPadrao').value = configSys.prazo_padrao_dias || 15;
+        document.getElementById('cfgHorasOcultar').value = configSys.horas_ocultar_entregue || 24;
+    }
+
+    function openModalConfig() { document.getElementById('modalConfig').style.display = 'flex'; }
+    function closeModalConfig() { document.getElementById('modalConfig').style.display = 'none'; }
+
+    document.getElementById('configForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+            nome_prefeitura: document.getElementById('cfgPrefeitura').value.trim(),
+            cnpj_prefeitura: document.getElementById('cfgCnpj').value.trim(),
+            departamento: document.getElementById('cfgDepto').value.trim(),
+            prazo_padrao_dias: parseInt(document.getElementById('cfgPrazoPadrao').value) || 15,
+            horas_ocultar_entregue: parseInt(document.getElementById('cfgHorasOcultar').value) || 24
+        };
+        await _supabase.from('configuracoes').update(payload).eq('id', 1);
+        registrarLog("Atualizou as Configurações Gerais do Sistema");
+        alert("✅ Configurações salvas!");
+        closeModalConfig();
+        fetchConfig();
+    });
+
+    async function registrarLog(acao, numAf = '-') {
+        const payload = {
+            usuario: usuarioLogado ? usuarioLogado.nome : 'Sistema',
+            acao: acao,
+            numaf: numAf,
+            data_hora: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR')
+        };
+        await _supabase.from('logs_auditoria').insert([payload]);
+    }
+
+    async function openModalLogs() {
+        document.getElementById('modalLogs').style.display = 'flex';
+        const { data } = await _supabase.from('logs_auditoria').select('*').order('id', { ascending: false }).limit(50);
+        const tbody = document.getElementById('logsTableBody');
+        tbody.innerHTML = '';
+        if (data) {
+            data.forEach(l => {
+                tbody.innerHTML += `<tr><td><small>${l.data_hora}</small></td><td><b>${l.usuario}</b></td><td>${l.acao}</td><td><code>${l.numaf || '-'}</code></td></tr>`;
+            });
+        }
+    }
+    function closeModalLogs() { document.getElementById('modalLogs').style.display = 'none'; }
+
+    /* ====== MÓDULO DE FORNECEDORES ====== */
+    function openModalFornecedores() {
+        document.getElementById('modalFornecedores').style.display = 'flex';
+        fetchFornecedores();
+    }
+
+    function closeModalFornecedores() {
+        document.getElementById('modalFornecedores').style.display = 'none';
+        resetFornForm();
+    }
+
+    async function fetchFornecedores() {
+        const { data, error } = await _supabase
+            .from('fornecedores')
+            .select('*')
+            .order('razao_social', { ascending: true });
+
+        if (error) {
+            console.warn("Aviso: tabela fornecedores ainda não foi criada no Supabase:", error.message);
+            return;
+        }
+
+        fornecedoresList = data || [];
+        updateFornecedoresDatalist();
+        renderFornecedoresTable();
+    }
+
+    function updateFornecedoresDatalist() {
+        const dl = document.getElementById('fornecedoresDatalist');
+        if (!dl) return;
+        dl.innerHTML = '';
+        fornecedoresList.forEach(f => {
+            if (f.razao_social) {
+                dl.innerHTML += `<option value="${escapeHtml(f.razao_social)}">${f.contato_nome ? `Contato: ${escapeHtml(f.contato_nome)}` : ''}</option>`;
+            }
+        });
+    }
+
+    function renderFornecedoresTable() {
+        const tbody = document.getElementById('fornecedoresTableBody');
+        const filtro = (document.getElementById('buscaFornecedor').value || '').toLowerCase();
+        tbody.innerHTML = '';
+
+        const filtrados = fornecedoresList.filter(f => 
+            (f.razao_social || '').toLowerCase().includes(filtro) ||
+            (f.cnpj || '').toLowerCase().includes(filtro) ||
+            (f.contato_nome || '').toLowerCase().includes(filtro) ||
+            (f.email || '').toLowerCase().includes(filtro) ||
+            (f.observacoes || '').toLowerCase().includes(filtro)
+        );
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:18px;">Nenhum fornecedor encontrado.</td></tr>';
+            return;
+        }
+
+        filtrados.forEach(f => {
+            const limpoTel = (f.telefone || '').replace(/\D/g, '');
+            const linkWhats = limpoTel ? `https://wa.me/55${limpoTel}` : null;
+            
+            let emailsHtml = '-';
+            if (f.email) {
+                const arrEmails = f.email.split(/[,;]+/).map(e => e.trim()).filter(Boolean);
+                if (arrEmails.length > 0) {
+                    emailsHtml = arrEmails.map(mail => 
+                        `<div>✉️ <a href="mailto:${escapeHtml(mail)}" style="color:#2563eb; text-decoration:underline;">${escapeHtml(mail)}</a></div>`
+                    ).join('');
+                }
+            }
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td>
+                        <b>${escapeHtml(f.razao_social)}</b>
+                        ${f.cnpj ? `<br><small style="color:#64748b;">CNPJ: ${escapeHtml(f.cnpj)}</small>` : ''}
+                    </td>
+                    <td>${escapeHtml(f.contato_nome || '-')}</td>
+                    <td>
+                        ${f.telefone ? `
+                            <div>📞 <a href="tel:${limpoTel}" style="color:var(--primary); text-decoration:none; font-weight:600;">${escapeHtml(f.telefone)}</a></div>
+                            ${linkWhats ? `<div>💬 <a href="${linkWhats}" target="_blank" style="color:#16a34a; font-weight:700; text-decoration:none;">WhatsApp</a></div>` : ''}
+                        ` : ''}
+                        ${emailsHtml !== '-' ? emailsHtml : (f.telefone ? '' : '-')}
+                    </td>
+                    <td><small>${escapeHtml(f.observacoes || '-')}</small></td>
+                    <td style="white-space:nowrap;">
+                        <button type="button" class="btn btn-edit btn-mini" title="Editar Contato" onclick="editFornecedor(${f.id})">✏️</button>
+                        <button type="button" class="btn-delete btn-mini" title="Excluir Contato" onclick="deleteFornecedor(${f.id})">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function resetFornForm() {
+        document.getElementById('fornecedorForm').reset();
+        document.getElementById('editFornId').value = '';
+        document.getElementById('btnCancelForn').style.display = 'none';
+        document.getElementById('btnSalvarForn').innerText = 'Salvar Fornecedor';
+    }
+
+    function editFornecedor(id) {
+        const f = fornecedoresList.find(x => x.id === id);
+        if (!f) return;
+        document.getElementById('editFornId').value = f.id;
+        document.getElementById('fornRazao').value = f.razao_social || '';
+        document.getElementById('fornCnpj').value = f.cnpj || '';
+        document.getElementById('fornContato').value = f.contato_nome || '';
+        document.getElementById('fornTelefone').value = f.telefone || '';
+        document.getElementById('fornEmail').value = f.email || '';
+        document.getElementById('fornObs').value = f.observacoes || '';
+
+        document.getElementById('btnSalvarForn').innerText = 'Atualizar Fornecedor';
+        document.getElementById('btnCancelForn').style.display = 'inline-flex';
+    }
+
+    document.getElementById('fornecedorForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editFornId').value;
+        const payload = {
+            razao_social: document.getElementById('fornRazao').value.trim(),
+            cnpj: document.getElementById('fornCnpj').value.trim() || null,
+            contato_nome: document.getElementById('fornContato').value.trim() || null,
+            telefone: document.getElementById('fornTelefone').value.trim() || null,
+            email: document.getElementById('fornEmail').value.trim() || null,
+            observacoes: document.getElementById('fornObs').value.trim() || null
+        };
+
+        let res;
+        if (editId) {
+            res = await _supabase.from('fornecedores').update(payload).eq('id', parseInt(editId));
+        } else {
+            res = await _supabase.from('fornecedores').insert([payload]);
+        }
+
+        if (res.error) {
+            alert("❌ Erro ao salvar fornecedor: " + res.error.message);
+        } else {
+            registrarLog((editId ? "Atualizou" : "Cadastrou") + ` fornecedor: ${payload.razao_social}`);
+            resetFornForm();
+            fetchFornecedores();
+        }
+    });
+
+    async function deleteFornecedor(id) {
+        const f = fornecedoresList.find(x => x.id === id);
+        if (confirm(`Tem certeza que deseja excluir "${f ? f.razao_social : 'este fornecedor'}"?`)) {
+            const { error } = await _supabase.from('fornecedores').delete().eq('id', id);
+            if (error) {
+                alert("Erro ao excluir: " + error.message);
+            } else {
+                registrarLog(`Excluiu contato do fornecedor: ${f ? f.razao_social : id}`);
+                fetchFornecedores();
+            }
+        }
+    }
+
+    /* ====== MÓDULO DE CANCELAMENTO / SANÇÕES ====== */
+    function openModalCancelarSaldo(id) {
+        const af = afs.find(item => item.id === id);
+        if(!af) return;
+        const valTot = af.valortotal || af.valorTotal || 0;
+        const entregueRs = af.parciais ? af.parciais.reduce((acc, p) => acc + (p.valor || 0), 0) : 0;
+        const saldoPendente = Math.max(0, valTot - entregueRs);
+
+        document.getElementById('cancelSaldoAfId').value = id;
+        document.getElementById('cancelSaldoValor').value = saldoPendente.toFixed(2);
+        document.getElementById('cancelSaldoMotivo').value = '';
+        document.getElementById('modalCancelarSaldo').style.display = 'flex';
+    }
+    function closeModalCancelarSaldo() { document.getElementById('modalCancelarSaldo').style.display = 'none'; }
+
+    async function saveCancelarSaldo() {
+        const id = parseInt(document.getElementById('cancelSaldoAfId').value);
+        const valorToCancel = parseFloat(document.getElementById('cancelSaldoValor').value) || 0;
+        const motivo = document.getElementById('cancelSaldoMotivo').value.trim();
+
+        if(!motivo) { alert('Informe o motivo!'); return; }
+
+        const af = afs.find(item => item.id === id);
+        if(af) {
+            const payload = {
+                statussancao: 'Saldo Cancelado',
+                saldo_cancelado: valorToCancel,
+                mot_cancelamento_saldo: motivo,
+                data_conclusao: new Date().toISOString()
+            };
+            await _supabase.from('afs').update(payload).eq('id', id);
+            registrarLog(`Cancelou saldo de R$ ${valorToCancel.toFixed(2)} na AF: ${af.numaf || af.numAf}`, af.numaf || af.numAf);
+            closeModalCancelarSaldo();
+            fetchAfs();
+        }
+    }
+
+    function openModalObsSancao(id, novoStatus) {
+        const af = afs.find(item => item.id === id);
+        document.getElementById('obsSancaoAfId').value = id;
+        document.getElementById('obsSancaoNovoStatus').value = novoStatus;
+        document.getElementById('obsSancaoTexto').value = af ? (af.obs_sancao || '') : '';
+        document.getElementById('modalObsSancao').style.display = 'flex';
+    }
+    function closeModalObsSancao() { document.getElementById('modalObsSancao').style.display = 'none'; }
+
+    async function saveObsSancao() {
+        const id = parseInt(document.getElementById('obsSancaoAfId').value);
+        const novoStatus = document.getElementById('obsSancaoNovoStatus').value;
+        const textoObs = document.getElementById('obsSancaoTexto').value.trim();
+
+        const af = afs.find(item => Number(item.id) === id);
+        
+        const payload = { 
+            statussancao: novoStatus, 
+            obs_sancao: textoObs 
+        };
+
+        if (novoStatus === 'Entregue' || novoStatus === 'Saldo Cancelado') {
+            payload.data_conclusao = new Date().toISOString();
+        }
+
+        const { error } = await _supabase.from('afs').update(payload).eq('id', id);
+
+        if (error) {
+            alert("❌ Erro ao salvar sanção: " + error.message);
+            return;
+        }
+
+        if (af) {
+            registrarLog(`Atualizou sanção para "${novoStatus}" na AF: ${af.numaf || af.numAf}`, af.numaf || af.numAf);
+        }
+        
+        closeModalObsSancao();
+        await fetchAfs();
+    }
+
+    function openModalAnexoNotificacao(id) {
+        const af = afs.find(item => item.id === id);
+        if (!af) return;
+
+        document.getElementById('anexoAfId').value = id;
+        document.getElementById('arquivoNotificacaoInput').value = '';
+        
+        const anexoContainer = document.getElementById('anexoAtualContainer');
+        const anexoLink = document.getElementById('anexoAtualLink');
+
+        if (af.anexo_notificacao) {
+            anexoContainer.style.display = 'block';
+            anexoLink.href = af.anexo_notificacao;
+        } else {
+            anexoContainer.style.display = 'none';
+        }
+
+        document.getElementById('modalAnexoNotificacao').style.display = 'flex';
+    }
+
+    function closeModalAnexo() {
+        document.getElementById('modalAnexoNotificacao').style.display = 'none';
+    }
+
+    async function salvarAnexoNotificacao() {
+        const id = parseInt(document.getElementById('anexoAfId').value);
+        const fileInput = document.getElementById('arquivoNotificacaoInput');
+        const file = fileInput.files[0];
+        const btn = document.getElementById('btnSalvarAnexo');
+
+        if (!file) {
+            alert('Por favor, selecione um arquivo PDF.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = 'Enviando...';
+
+        const af = afs.find(item => item.id === id);
+        const fileExt = file.name.split('.').pop();
+        const fileName = `notificacao_af_${id}_${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await _supabase.storage
+            .from('notificacoes')
+            .upload(fileName, file, { upsert: true });
+
+        if (uploadError) {
+            alert('❌ Erro ao enviar PDF: ' + uploadError.message);
+            btn.disabled = false;
+            btn.innerText = 'Salvar PDF';
+            return;
+        }
+
+        const { data: publicUrlData } = _supabase.storage
+            .from('notificacoes')
+            .getPublicUrl(fileName);
+
+        const fileUrl = publicUrlData.publicUrl;
+
+        const { error: dbError } = await _supabase
+            .from('afs')
+            .update({ anexo_notificacao: fileUrl })
+            .eq('id', id);
+
+        btn.disabled = false;
+        btn.innerText = 'Salvar PDF';
+
+        if (dbError) {
+            alert('❌ Erro ao salvar anexo no banco: ' + dbError.message);
+        } else {
+            registrarLog(`Anexou notificação em PDF na AF: ${af ? (af.numaf || af.numAf) : id}`, af ? (af.numaf || af.numAf) : '-');
+            alert('✅ Notificação em PDF anexada com sucesso!');
+            closeModalAnexo();
+            fetchAfs();
+        }
+    }
+
+    async function fetchSetores() {
+        const { data } = await _supabase.from('setores').select('*');
+        setores = data || [
+            { id: 1, nome: 'Básica/Rede', cor: '#2563eb' },
+            { id: 2, nome: 'Pronto-socorro', cor: '#f97316' },
+            { id: 3, nome: 'Mandado Judicial/Case', cor: '#a855f7' },
+            { id: 4, nome: 'Enfermagem', cor: '#eab308' }
+        ];
+        populateSetoresDropdowns();
+        renderSetoresTable();
+    }
+
+    function populateSetoresDropdowns() {
+        const formSelect = document.getElementById('setor');
+        const filterSelect = document.getElementById('filterSetor');
+        const relatorioSelect = document.getElementById('relatorioSetorSelect');
+
+        formSelect.innerHTML = '';
+        filterSelect.innerHTML = '<option value="TODOS">Todos os Setores</option>';
+        relatorioSelect.innerHTML = '';
+
+        setores.forEach(s => {
+            formSelect.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
+            filterSelect.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
+            relatorioSelect.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
+        });
+    }
+
+    function renderSetoresTable() {
+        const tbody = document.getElementById('setoresTableBody');
+        tbody.innerHTML = '';
+        setores.forEach(s => {
+            tbody.innerHTML += `<tr><td><b>${s.nome}</b></td><td><span style="display:inline-block; width:20px; height:20px; background:${s.cor}; border-radius:4px; vertical-align:middle;"></span> <code>${s.cor}</code></td><td><button class="btn btn-edit" onclick="editSetor(${s.id}, '${s.nome}', '${s.cor}')">✏️ Editar</button> <button class="btn-delete" onclick="deleteSetor(${s.id})">Excluir</button></td></tr>`;
+        });
+    }
+
+    function openModalSetores() { document.getElementById('modalSetores').style.display = 'flex'; }
+    function closeModalSetores() { document.getElementById('modalSetores').style.display = 'none'; resetSetorForm(); }
+
+    function editSetor(id, nome, cor) {
+        document.getElementById('editSetorId').value = id;
+        document.getElementById('setorNome').value = nome;
+        document.getElementById('setorCor').value = cor;
+        document.getElementById('btnCancelSetorEdit').style.display = 'inline-flex';
+    }
+
+    function resetSetorForm() {
+        document.getElementById('setorAddForm').reset();
+        document.getElementById('editSetorId').value = '';
+        document.getElementById('btnCancelSetorEdit').style.display = 'none';
+    }
+
+    document.getElementById('setorAddForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editSetorId').value;
+        const nome = document.getElementById('setorNome').value.trim();
+        const cor = document.getElementById('setorCor').value;
+
+        if (editId) {
+            await _supabase.from('setores').update({ nome, cor }).eq('id', parseInt(editId));
+        } else {
+            await _supabase.from('setores').insert([{ nome, cor }]);
+        }
+        resetSetorForm();
+        fetchSetores();
+    });
+
+    async function deleteSetor(id) {
+        if(confirm('Tem certeza que deseja excluir este setor?')) {
+            await _supabase.from('setores').delete().eq('id', id);
+            fetchSetores();
+        }
+    }
+
+    function openModalRelatorio() { document.getElementById('modalRelatorio').style.display = 'flex'; }
+    function closeModalRelatorio() { document.getElementById('modalRelatorio').style.display = 'none'; }
+
+    function toggleRelatorioSetorSelect() {
+        const tipo = document.getElementById('relatorioTipo').value;
+        document.getElementById('relatorioSetorContainer').style.display = (tipo === 'SETOR') ? 'block' : 'none';
+    }
+
+    function confirmarEImprimirRelatorio() {
+        const tipo = document.getElementById('relatorioTipo').value;
+        const setorSel = document.getElementById('relatorioSetorSelect').value;
+        
+        let labelFiltro = "Todas as AFs";
+        if (tipo === 'ATRASADAS') labelFiltro = "Apenas AFs Atrasadas / Sanções";
+        if (tipo === 'ENTREGUES') labelFiltro = "Apenas AFs Concluídas / Entregues";
+        if (tipo === 'SETOR') labelFiltro = `Apenas Setor: ${setorSel}`;
+
+        document.getElementById('printFiltroNome').innerText = labelFiltro;
+        document.getElementById('printUsuario').innerText = usuarioLogado ? usuarioLogado.nome : 'Almoxarife';
+        document.getElementById('printDataHora').innerText = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR');
+
+        registrarLog(`Gerou Relatório: ${labelFiltro}`);
+        renderTableForPrint(tipo, setorSel);
+        closeModalRelatorio();
+        
+        document.body.className = 'printing-relatorio';
+        window.print();
+        
+        setTimeout(() => {
+            document.body.className = '';
+            renderTable();
+        }, 1000);
+    }
+
+    function renderTableForPrint(tipo, setorSel) {
+        const tbody = document.getElementById('afTableBody');
+        tbody.innerHTML = '';
+
+        let filtered = afs.filter(af => {
+            const status = af.statussancao || af.statusSancao;
+            if (tipo === 'ATRASADAS') return status !== 'Regular' && status !== 'Entregue';
+            if (tipo === 'ENTREGUES') return status === 'Entregue';
+            if (tipo === 'SETOR') return af.setor === setorSel;
+            return true;
+        });
+
+        filtered.forEach(af => {
+            const tr = document.createElement('tr');
+            const valTotal = af.valortotal || af.valorTotal || 0;
+            const numAf = af.numaf || af.numAf || '';
+            const numEmpenho = af.numempenho || af.numEmpenho || '-';
+
+            let parciaisPrint = '-';
+            if (af.parciais && af.parciais.length > 0) {
+                parciaisPrint = af.parciais.map(p => `• NF ${p.nf}: R$ ${p.valor.toFixed(2)}`).join('<br>');
+            }
+
+            let cobrancasPrint = '-';
+            if (af.cobrancas && af.cobrancas.length > 0) {
+                cobrancasPrint = af.cobrancas.map(c => `• ${c.data || c} ${c.obs ? `(${c.obs})` : ''}`).join('<br>');
+            }
+
+            let statusPrint = `<b>${af.statussancao || 'Regular'}</b>`;
+            if (af.obs_sancao) statusPrint += `<br><small style="color:#dc2626;">Obs: ${af.obs_sancao}</small>`;
+
+            tr.innerHTML = `
+                <td><span class="setor-badge">${af.setor || '-'}</span></td>
+                <td><strong>${numAf}</strong><br><small>Emp: ${numEmpenho}</small></td>
+                <td>
+                    <b>${af.fornecedor || ''}</b>
+                    ${af.produtos ? `<div style="font-size:0.75rem; margin-top:2px;"><b>Itens:</b> ${af.produtos}</div>` : ''}
+                </td>
+                <td>R$ ${valTotal.toFixed(2)}</td>
+                <td>${formatDate(af.vigenciaata || af.vigenciaAta)}</td>
+                <td>${formatDate(af.prazoentrega || af.prazoEntrega)}</td>
+                <td>${parciaisPrint}</td>
+                <td>${cobrancasPrint}</td>
+                <td>${af.observacoes || '-'}<br>${statusPrint}</td>
+                <td class="actions-cell no-print"></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function openModalUsuarios() { document.getElementById('modalUsuarios').style.display = 'flex'; fetchUsuarios(); }
+    function closeModalUsuarios() { document.getElementById('modalUsuarios').style.display = 'none'; }
+
+    async function fetchUsuarios() {
+        const { data, error } = await _supabase.from('perfis_usuarios').select('nome,email,cargo,papel,ativo').order('nome');
+        const tbody = document.getElementById('usuariosTableBody');
+        tbody.innerHTML = '';
+        if (error) {
+            console.error('Erro ao carregar perfis:', error);
+            tbody.innerHTML = '<tr><td colspan="3">Execute a migração de segurança para habilitar a lista de funcionários.</td></tr>';
+            return;
+        }
+        (data || []).forEach(u => {
+            tbody.innerHTML += `<tr><td><b>${escapeHtml(u.nome || '—')}</b></td><td><code>${escapeHtml(u.email || '—')}</code></td><td>${escapeHtml(u.cargo || u.papel || 'Operador')}${u.ativo === false ? ' — Inativo' : ''}</td></tr>`;
+        });
+    }
+
+    async function fetchAfs() {
+        const { data, error } = await _supabase.from('afs').select('*');
+        if (error) {
+            console.error("Erro ao carregar AFs:", error);
+            return;
+        }
+        afs = data || [];
+        saveAndRenderLocal();
+        gerarBriefingGargalosIA(false);
+    }
+
+    _supabase.channel('public:afs').on('postgres_changes', { event: '*', schema: 'public', table: 'afs' }, () => fetchAfs()).subscribe();
+
+    document.getElementById('afForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editAfId').value;
+        const valTotalInput = document.getElementById('valorTotal').value;
+
+        const payload = {
+            numaf: document.getElementById('numAf').value.trim(),
+            numempenho: document.getElementById('numEmpenho').value.trim() || null,
+            setor: document.getElementById('setor').value,
+            fornecedor: document.getElementById('fornecedor').value.trim(),
+            valortotal: valTotalInput ? parseFloat(valTotalInput) : 0,
+            vigenciaata: document.getElementById('vigenciaAta').value || null,
+            prazoentrega: document.getElementById('prazoEntrega').value,
+            statussancao: document.getElementById('statusSancao').value,
+            observacoes: document.getElementById('observacoes').value.trim() || null,
+            produtos: document.getElementById('produtosText').value.trim() || null,
+            usuario_cadastro: usuarioLogado ? usuarioLogado.nome : 'Sistema'
+        };
+
+        if(payload.statussancao === 'Entregue' || payload.statussancao === 'Saldo Cancelado') {
+            payload.data_conclusao = new Date().toISOString();
+        }
+
+        let result;
+        if (editId) {
+            result = await _supabase.from('afs').update(payload).eq('id', parseInt(editId));
+        } else {
+            payload.cobrancas = [];
+            payload.parciais = [];
+            result = await _supabase.from('afs').insert([payload]);
+        }
+
+        if (result.error) {
+            alert("❌ Erro ao salvar AF:\n\n" + result.error.message);
+        } else {
+            registrarLog(editId ? `Atualizou AF: ${payload.numaf}` : `Cadastrou nova AF: ${payload.numaf}`, payload.numaf);
+            resetForm();
+            fetchAfs();
+        }
+    });
+
+    function editAf(id) {
+        const af = afs.find(item => item.id === id);
+        if (!af) return;
+
+        document.getElementById('editAfId').value = af.id;
+        document.getElementById('numAf').value = af.numaf || af.numAf || '';
+        document.getElementById('numEmpenho').value = af.numempenho || af.numEmpenho || '';
+        document.getElementById('setor').value = af.setor || '';
+        document.getElementById('fornecedor').value = af.fornecedor || '';
+        document.getElementById('valorTotal').value = af.valortotal || af.valorTotal || '';
+        document.getElementById('vigenciaAta').value = af.vigenciaata || af.vigenciaAta || '';
+        document.getElementById('prazoEntrega').value = af.prazoentrega || af.prazoEntrega || '';
+        document.getElementById('statusSancao').value = af.statussancao || af.statusSancao || 'Regular';
+        document.getElementById('observacoes').value = af.observacoes || '';
+        document.getElementById('produtosText').value = af.produtos || '';
+
+        document.getElementById('formTitle').innerText = '✏️ Editar Autorização de Fornecimento';
+        document.getElementById('btnSubmitForm').innerText = 'Atualizar AF';
+        document.getElementById('btnCancelEdit').style.display = 'inline-flex';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetForm() {
+        document.getElementById('afForm').reset();
+        document.getElementById('editAfId').value = '';
+        document.getElementById('formTitle').innerText = 'Cadastrar Nova Autorização';
+        document.getElementById('btnSubmitForm').innerText = 'Salvar AF';
+        document.getElementById('btnCancelEdit').style.display = 'none';
+    }
+
+    function openModalCobranca(id) {
+        document.getElementById('cobrancaAfId').value = id;
+        document.getElementById('cobrancaData').value = new Date().toISOString().split('T')[0];
+        document.getElementById('modalCobranca').style.display = 'flex';
+    }
+    function closeModalCobranca() { document.getElementById('modalCobranca').style.display = 'none'; }
+
+    async function saveCobranca() {
+        const id = parseInt(document.getElementById('cobrancaAfId').value);
+        const dataCob = document.getElementById('cobrancaData').value;
+        const obsCob = document.getElementById('cobrancaObs').value.trim();
+
+        const af = afs.find(item => item.id === id);
+        if(af && dataCob) {
+            const cobrancas = af.cobrancas || [];
+            const parts = dataCob.split('-');
+            cobrancas.push({ data: `${parts[2]}/${parts[1]}/${parts[0]}`, usuario: usuarioLogado ? usuarioLogado.nome : 'Almoxarife', obs: obsCob });
+
+            let statussancao = af.statussancao || af.statusSancao;
+            if(cobrancas.length >= 3 && (statussancao === 'Regular' || statussancao === 'Cobrar')) statussancao = 'Notificado';
+
+            await _supabase.from('afs').update({ cobrancas, statussancao }).eq('id', id);
+            closeModalCobranca();
+            fetchAfs();
+        }
+    }
+
+    function openModalParcial(id, indexParcial = -1) {
+        document.getElementById('modalAfId').value = id;
+        document.getElementById('modalParcialIndex').value = indexParcial;
+        
+        const af = afs.find(item => item.id === id);
+        if (indexParcial >= 0 && af && af.parciais && af.parciais[indexParcial]) {
+            const item = af.parciais[indexParcial];
+            document.getElementById('modalParcialTitle').innerText = '✏️ Editar Entrega Parcial';
+            document.getElementById('parcialNf').value = item.nf || '';
+            document.getElementById('parcialValor').value = item.valor || '';
+            document.getElementById('parcialData').value = item.data || new Date().toISOString().split('T')[0];
+        } else {
+            document.getElementById('modalParcialTitle').innerText = '📦 Registrar Entrega Parcial';
+            document.getElementById('parcialNf').value = '';
+            document.getElementById('parcialValor').value = '';
+            document.getElementById('parcialData').value = new Date().toISOString().split('T')[0];
+        }
+
+        document.getElementById('modalParcial').style.display = 'flex';
+    }
+    function closeModalParcial() { document.getElementById('modalParcial').style.display = 'none'; }
+
+    async function saveParcial() {
+        const id = parseInt(document.getElementById('modalAfId').value);
+        const indexParcial = parseInt(document.getElementById('modalParcialIndex').value);
+        const nf = document.getElementById('parcialNf').value.trim();
+        const valor = parseFloat(document.getElementById('parcialValor').value) || 0;
+        const data = document.getElementById('parcialData').value;
+
+        const af = afs.find(item => item.id === id);
+        if(af && nf && data) {
+            const parciais = af.parciais || [];
+            const novoObj = { nf, valor, data, usuario: usuarioLogado ? usuarioLogado.nome : 'Almoxarife' };
+
+            if (indexParcial >= 0 && indexParcial < parciais.length) {
+                parciais[indexParcial] = novoObj;
+                registrarLog(`Editou entrega parcial NF ${nf} na AF: ${af.numaf || af.numAf}`, af.numaf || af.numAf);
+            } else {
+                parciais.push(novoObj);
+                registrarLog(`Registrou entrega parcial NF ${nf} na AF: ${af.numaf || af.numAf}`, af.numaf || af.numAf);
+            }
+
+            const statussancao = (af.statussancao !== 'Entregue' && af.statussancao !== 'Saldo Cancelado') ? 'Entrega Parcial' : af.statussancao;
+
+            await _supabase.from('afs').update({ parciais, statussancao }).eq('id', id);
+            closeModalParcial();
+            fetchAfs();
+        }
+    }
+
+    async function deleteParcial(id, indexParcial) {
+        const af = afs.find(item => item.id === id);
+        if (af && af.parciais && confirm('Deseja excluir esta entrega parcial?')) {
+            const parciais = af.parciais;
+            parciais.splice(indexParcial, 1);
+            let statussancao = af.statussancao;
+            if (parciais.length === 0 && statussancao === 'Entrega Parcial') {
+                statussancao = 'Regular';
+            }
+            await _supabase.from('afs').update({ parciais, statussancao }).eq('id', id);
+            registrarLog(`Excluiu entrega parcial na AF: ${af.numaf || af.numAf}`, af.numaf || af.numAf);
+            fetchAfs();
+        }
+    }
+
+    function tratarMudancaStatusSelect(id, novoStatus) {
+        alterarStatusManual(id, novoStatus);
+    }
+
+    async function alterarStatusManual(id, novoStatus) {
+        const idNum = parseInt(id);
+        const af = afs.find(item => Number(item.id) === idNum);
+        
+        if (af) {
+            af.statussancao = novoStatus;
+            af.statusSancao = novoStatus;
+            if (novoStatus === 'Entregue' || novoStatus === 'Saldo Cancelado') {
+                af.data_conclusao = new Date().toISOString();
+            }
+        }
+
+        const payload = { statussancao: novoStatus };
+        if (novoStatus === 'Entregue' || novoStatus === 'Saldo Cancelado') {
+            payload.data_conclusao = new Date().toISOString();
+        }
+
+        const { error } = await _supabase
+            .from('afs')
+            .update(payload)
+            .eq('id', idNum);
+
+        if (error) {
+            alert("❌ Erro ao atualizar status no banco: " + error.message);
+            console.error("Erro no update de status:", error);
+        } else {
+            if (af) {
+                registrarLog(`Alterou status para "${novoStatus}" na AF: ${af.numaf || af.numAf}`, af.numaf || af.numAf);
+            }
+        }
+
+        saveAndRenderLocal();
+    }
+
+    async function deleteAf(id) {
+        const af = afs.find(item => item.id === id);
+        if(confirm('Tem certeza que deseja excluir esta AF?')) {
+            await _supabase.from('afs').delete().eq('id', id);
+            if(af) registrarLog(`Excluiu a AF: ${af.numaf || af.numAf}`, af.numaf || af.numAf);
+            fetchAfs();
+        }
+    }
+
+    /* Dashboard e filtros */
+    function scrollToSection(id) {
+        const el = document.getElementById(id); if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+    function focusSearch() {
+        scrollToSection('mainControls');
+        setTimeout(() => { const el=document.getElementById('searchInput'); if(el){ el.focus(); el.select(); } }, 350);
+    }
+    function openNotifications(){ document.getElementById('notificationPanel').classList.add('open'); renderNotifications(); }
+    function closeNotifications(){ document.getElementById('notificationPanel').classList.remove('open'); }
+    document.addEventListener('click', function(e){
+        const panel=document.getElementById('notificationPanel');
+        const btn=e.target.closest && e.target.closest('[onclick="openNotifications()"]');
+        if(panel && panel.classList.contains('open') && !panel.contains(e.target) && !btn) closeNotifications();
+    });
+    function daysFromToday(dateStr){
+        if(!dateStr) return null;
+        const d = new Date(dateStr + 'T00:00:00'); const t = new Date(); t.setHours(0,0,0,0);
+        return Math.ceil((d-t)/(1000*60*60*24));
+    }
+    function afStatus(af){ return af.statussancao || af.statusSancao || 'Regular'; }
+    function afTotal(af){ return Number(af.valortotal || af.valorTotal || 0); }
+    function afDelivered(af){ return (af.parciais || []).reduce((acc,p)=>acc + Number(p.valor || 0),0); }
+    function afCancelled(af){ return Number(af.saldo_cancelado || 0); }
+    function afPending(af){ return Math.max(0, afTotal(af)-afDelivered(af)-afCancelled(af)); }
+    function isClosed(af){ const s=afStatus(af); return s==='Entregue'||s==='Saldo Cancelado'; }
+
+    function updateV2Dashboard(){
+        let atrasadas=0, hoje=0, parciais=0, sancoes=0, entregues=0, pendente=0;
+        const priority=[];
+        const now=new Date(); now.setHours(0,0,0,0);
+        afs.forEach(af=>{
+            const s=afStatus(af); const d=daysFromToday(af.prazoentrega || af.prazoEntrega);
+            if(s==='Entregue') entregues++;
+            if(s==='Entrega Parcial') parciais++;
+            if(['Notificado','Advertido','Multado'].includes(s)) sancoes++;
+            if(!isClosed(af)){ 
+                pendente += afPending(af); 
+                if(d!==null){ 
+                    if(d<0){atrasadas++; priority.push({level:'danger',title:`${af.numaf||af.numAf||'AF'} — ${af.fornecedor||'Fornecedor'}`,meta:`Atrasada há ${Math.abs(d)} dia(s)`,tag:'Cobrar',id:af.id});} 
+                    else if(d===0){hoje++; priority.push({level:'warning',title:`${af.numaf||af.numAf||'AF'} — ${af.fornecedor||'Fornecedor'}`,meta:'Prazo vence hoje',tag:s==='Regular'?'Acompanhar':s,id:af.id});} 
+                    else if(d<=3){priority.push({level:'info',title:`${af.numaf||af.numAf||'AF'} — ${af.fornecedor||'Fornecedor'}`,meta:`Prazo em ${d} dia(s)`,tag:s,id:af.id});} 
+                } 
+            }
+            if(s==='Notificado'||s==='Advertido'||s==='Multado') priority.push({level:'danger',title:`${af.numaf||af.numAf||'AF'} — ${af.fornecedor||'Fornecedor'}`,meta:`Situação: ${s}`,tag:'Ação',id:af.id});
+            if((af.vigenciaata||af.vigenciaAta) && !isClosed(af)){ const vd=daysFromToday(af.vigenciaata||af.vigenciaAta); if(vd!==null && vd>=0 && vd<=30) priority.push({level:'warning',title:`${af.numaf||af.numAf||'AF'} — vigência próxima`,meta:`Ata/contrato vence em ${vd} dia(s)`,tag:'Vigência',id:af.id}); }
+        });
+        document.getElementById('v2Atrasadas').textContent=atrasadas;
+        document.getElementById('v2Hoje').textContent=hoje;
+        document.getElementById('v2Parciais').textContent=parciais;
+        document.getElementById('v2Sancoes').textContent=sancoes;
+        document.getElementById('v2Entregues').textContent=entregues;
+        document.getElementById('v2Pendente').textContent=pendente.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+        priority.sort((a,b)=>({danger:0,warning:1,info:2}[a.level]-({danger:0,warning:1,info:2}[b.level])));
+        const unique=[]; const ids=new Set(); priority.forEach(x=>{ const k=`${x.id}-${x.tag}`; if(!ids.has(k)){ids.add(k);unique.push(x);} });
+        const box = document.getElementById('priorityList');
+        if (box) {
+            box.innerHTML = unique.slice(0,8).map(x=>`<div class="priority-item" onclick="focusAf(${x.id})"><div class="priority-main"><div class="priority-title">${escapeHtml(x.title)}</div><div class="priority-meta">${escapeHtml(x.meta)}</div></div><span class="priority-tag tag-${x.level}">${escapeHtml(x.tag)}</span></div>`).join('');
+            if(!box.innerHTML) box.innerHTML='<div class="empty-state">✅ Nenhuma prioridade crítica agora.</div>';
+        }
+        const suppliers=new Set(afs.map(a=>String(a.fornecedor||'').trim()).filter(Boolean));
+        const setoresAtivos=new Set(afs.map(a=>String(a.setor||'').trim()).filter(Boolean));
+        document.getElementById('dataHealth').innerHTML=`<span class="health-pill">📦 ${afs.length} AFs</span><span class="health-pill">🏢 ${suppliers.size} fornecedores</span><span class="health-pill">🎨 ${setoresAtivos.size} setores usados</span><span class="health-pill">📎 ${afs.filter(a=>(a.produtos||'').trim()).length} com itens descritos</span>`;
+        const totalAlerts=atrasadas+hoje+parciais+sancoes;
+        const badge=document.getElementById('notifBadge'); badge.textContent=totalAlerts; badge.style.display=totalAlerts?'inline-flex':'none';
+        renderNotifications();
+    }
+
+    function renderNotifications(){
+        const list=document.getElementById('notificationList'); if(!list) return;
+        const items=[]; afs.forEach(af=>{
+            if(isClosed(af)) return;
+            const d=daysFromToday(af.prazoentrega||af.prazoEntrega); const s=afStatus(af);
+            if(d!==null && d<0) items.push({kind:'danger',title:`${af.numaf||af.numAf}: prazo em atraso`,meta:`${af.fornecedor||'-'} • ${Math.abs(d)} dia(s)`,id:af.id});
+            else if(d===0) items.push({kind:'warning',title:`${af.numaf||af.numAf}: vence hoje`,meta:af.fornecedor||'-',id:af.id});
+            if(['Notificado','Advertido','Multado'].includes(s)) items.push({kind:'danger',title:`${af.numaf||af.numAf}: ${s}`,meta:af.fornecedor||'-',id:af.id});
+            const v=af.vigenciaata||af.vigenciaAta; const vd=daysFromToday(v); if(vd!==null && vd>=0 && vd<=30) items.push({kind:'warning',title:`${af.numaf||af.numAf}: vigência próxima`,meta:`vence em ${vd} dia(s)`,id:af.id});
+        });
+        list.innerHTML=items.slice(0,20).map(i=>`<div class="notification-item" onclick="focusAf(${i.id});closeNotifications()"><div class="notif-title">${i.kind==='danger'?'🔴':'🟡'} ${escapeHtml(i.title)}</div><div class="notif-meta">${escapeHtml(i.meta)}</div></div>`).join('') || '<div class="empty-state">Nenhum alerta no momento.</div>';
+    }
+
+    function focusAf(id){
+        const af=afs.find(x=>x.id===id); if(!af) return;
+        const search=document.getElementById('searchInput'); if(search){ search.value=af.numaf||af.numAf||''; }
+        const sf=document.getElementById('filterSetor'); if(sf){ sf.value='TODOS'; }
+        const st=document.getElementById('filterStatus'); if(st){ st.value='TODOS'; }
+        setLetterFilter('');
+        renderTable(); scrollToSection('mainControls');
+    }
+
+    function applyStatusQuickFilter(status){
+        const search=document.getElementById('searchInput'); if(search) search.value='';
+        const sf=document.getElementById('filterSetor'); if(sf) sf.value='TODOS';
+        const st=document.getElementById('filterStatus'); if(st) st.value='TODOS';
+        setLetterFilter('');
+        renderTable();
+        scrollToSection('mainTable');
+        document.querySelectorAll('#afTableBody tr').forEach(tr=>{
+            const text=tr.innerText||'';
+            if(status==='Notificado') tr.style.display = text.includes('Notificado')||text.includes('Advertido')||text.includes('Multado')?'':'none';
+            else tr.style.display = text.includes(status)?'':'none';
+        });
+    }
+
+    function filterToday(){
+        document.getElementById('searchInput').value=''; document.getElementById('filterSetor').value='TODOS'; document.getElementById('filterStatus').value='TODOS'; 
+        setLetterFilter('');
+        renderTable();
+        document.querySelectorAll('#afTableBody tr').forEach(tr=>{ tr.style.display = (tr.innerText||'').includes('Vence Hoje!')?'':'none'; });
+        scrollToSection('mainTable');
+    }
+
+    function setLetterFilter(letra) {
+        selectedLetter = letra.toUpperCase();
+        document.querySelectorAll('.alphabet-btn').forEach(btn => {
+            if ((letra === '' && btn.innerText === 'TODAS') || btn.innerText === letra) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        renderTable();
+    }
+
+    function escapeHtml(value){ return String(value??'').replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+    function saveAndRenderLocal() {
+        renderTable();
+        updateV2Dashboard();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('afTableBody');
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const setorFilter = document.getElementById('filterSetor').value;
+        const statusFilter = document.getElementById('filterStatus').value;
+        const sortBy = document.getElementById('sortSelect').value;
+
+        tbody.innerHTML = '';
+        const agora = new Date();
+        const hojeZero = new Date();
+        hojeZero.setHours(0,0,0,0);
+
+        let filtered = afs.filter(af => {
+            const numAf = af.numaf || af.numAf || '';
+            const numEmpenho = af.numempenho || af.numEmpenho || '';
+            const fornecedor = (af.fornecedor || '').trim();
+            const produtos = af.produtos || '';
+            const currentStatus = af.statussancao || af.statusSancao || 'Regular';
+
+            const matchesSearch = fornecedor.toLowerCase().includes(search) || numAf.toLowerCase().includes(search) || numEmpenho.toLowerCase().includes(search) || produtos.toLowerCase().includes(search);
+            const matchesSetor = (setorFilter === 'TODOS') || (af.setor === setorFilter);
+
+            let matchesLetter = true;
+            if (selectedLetter !== '') {
+                const primeiraLetra = fornecedor.charAt(0).toUpperCase();
+                if (selectedLetter === '0-9') {
+                    matchesLetter = /^[0-9]/.test(primeiraLetra);
+                } else {
+                    matchesLetter = (primeiraLetra === selectedLetter);
+                }
+            }
+
+            const limiteHoras = configSys.horas_ocultar_entregue || 24;
+            if (statusFilter === 'ATIVOS' && (currentStatus === 'Entregue' || currentStatus === 'Saldo Cancelado') && af.data_conclusao) {
+                const diffHoras = (agora - new Date(af.data_conclusao)) / (1000 * 60 * 60);
+                if (diffHoras >= limiteHoras) return false;
+            }
+
+            return matchesSearch && matchesSetor && matchesLetter;
+        });
+
+        filtered.sort((a, b) => {
+            if (sortBy === 'fornecedor') return (a.fornecedor || '').localeCompare(b.fornecedor || '', 'pt-BR');
+            if (sortBy === 'prazo') return new Date(a.prazoentrega || '9999-12-31') - new Date(b.prazoentrega || '9999-12-31');
+            if (sortBy === 'vigencia') return new Date(a.vigenciaata || '9999-12-31') - new Date(b.vigenciaata || '9999-12-31');
+            return (Number(b.id)||0) - (Number(a.id)||0);
+        });
+
+        filtered.forEach(af => {
+            const tr = document.createElement('tr');
+            const currentStatus = af.statussancao || af.statusSancao || 'Regular';
+
+            if (currentStatus === 'Entregue') tr.classList.add('row-entregue');
+            if (currentStatus === 'Entrega Parcial') tr.classList.add('row-parcial');
+            if (currentStatus === 'Saldo Cancelado') tr.classList.add('row-cancelado');
+
+            const isEmAberto = currentStatus !== 'Entregue' && currentStatus !== 'Saldo Cancelado';
+            const vigenciaStr = af.vigenciaata || af.vigenciaAta;
+            let vigenciaVencida = false;
+
+            if (isEmAberto && vigenciaStr) {
+                const dataVigencia = new Date(vigenciaStr + 'T23:59:59');
+                const agoraVigencia = new Date();
+                vigenciaVencida = dataVigencia < agoraVigencia;
+            }
+
+            if (vigenciaVencida) {
+                tr.classList.add('row-vigencia-vencida');
+            }
+
+            const setorObj = setores.find(s => s.nome === af.setor);
+            const setorCor = setorObj ? setorObj.cor : '#2563eb';
+
+            const valTotal = af.valortotal || af.valorTotal || 0;
+            const totalParcial = af.parciais ? af.parciais.reduce((acc, p) => acc + (p.valor || 0), 0) : 0;
+            const saldoCancelado = af.saldo_cancelado || 0;
+            const valPendente = Math.max(0, valTotal - totalParcial - saldoCancelado);
+
+            let prazoBadgeHtml = '';
+            const dtPrazoStr = af.prazoentrega || af.prazoEntrega;
+            if (dtPrazoStr) {
+                const dtPrazo = new Date(dtPrazoStr + 'T00:00:00');
+                const diffDias = Math.ceil((dtPrazo - hojeZero) / (1000 * 60 * 60 * 24));
+
+                if (currentStatus !== 'Entregue' && currentStatus !== 'Saldo Cancelado') {
+                    if (diffDias < 0) {
+                        prazoBadgeHtml = `<br><span class="badge-prazo badge-atrasado">🔴 Atrasado há ${Math.abs(diffDias)}d</span>`;
+                    } else if (diffDias === 0) {
+                        prazoBadgeHtml = `<br><span class="badge-prazo badge-hoje">🟡 Vence Hoje!</span>`;
+                    } else {
+                        prazoBadgeHtml = `<br><span class="badge-prazo badge-ok">🟢 +${diffDias}d restantes</span>`;
+                    }
+                }
+            }
+
+            let cobrancasHtml = '';
+            if (af.cobrancas && af.cobrancas.length > 0) {
+                cobrancasHtml = af.cobrancas.map(c => `<div>• ${c.data || c} ${c.usuario ? `(${c.usuario})` : ''} ${c.obs ? `- ${c.obs}` : ''}</div>`).join('');
+            }
+
+            let parciaisHtml = '';
+            if (af.parciais && af.parciais.length > 0) {
+                parciaisHtml = af.parciais.map((p, idx) => `
+                    <div class="item-parcial-row">
+                        <span>• <b>${p.nf}</b>: R$ ${p.valor.toFixed(2)}</span>
+                        <span class="no-print" style="display:inline-flex; gap:2px;">
+                            <button class="btn btn-edit btn-mini" title="Editar Parcial" onclick="openModalParcial(${af.id}, ${idx})">✏️</button>
+                            <button class="btn-delete btn-mini" title="Excluir Parcial" onclick="deleteParcial(${af.id}, ${idx})">🗑️</button>
+                        </span>
+                    </div>
+                `).join('');
+            }
+
+            tr.innerHTML = `
+                <td><span class="setor-badge" style="background-color: ${setorCor};">${escapeHtml(af.setor || 'Geral')}</span></td>
+                <td><strong>${escapeHtml(af.numaf || af.numAf || '')}</strong>${af.numempenho ? `<br><small style="color:#64748b;">Emp: ${escapeHtml(af.numempenho)}</small>` : ''}</td>
+                <td><b>${escapeHtml(af.fornecedor || '')}</b>${af.produtos ? `<div style="font-size:0.75rem; color:#475569; margin-top:2px;"><b>Itens:</b> ${escapeHtml(af.produtos)}</div>` : ''}</td>
+                <td>
+                    <small>Total: ${valTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</small><br>
+                    <small style="color: #16a34a;">Entregue: ${totalParcial.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</small><br>
+                    ${saldoCancelado > 0 ? `<small style="color: #64748b;">Cancelado: ${saldoCancelado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</small><br>` : ''}
+                    <small style="color: #dc2626; font-weight: bold;">Saldo: ${valPendente.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</small>
+                </td>
+                <td>
+                    ${formatDate(af.vigenciaata || af.vigenciaAta)}
+                    ${vigenciaVencida ? '<br><span class="badge-vigencia-vencida">🔴 VIGÊNCIA VENCIDA</span>' : ''}
+                </td>
+                <td>${formatDate(dtPrazoStr)}${prazoBadgeHtml}</td>
+                <td>
+                    <button class="btn btn-parcial no-print" onclick="openModalParcial(${af.id}, -1)">📦 + Reg. Parcial</button>
+                    ${valPendente > 0 ? `<button class="btn btn-cancelar no-print" style="margin-top:2px;" onclick="openModalCancelarSaldo(${af.id})">🚫 Canc. Saldo</button>` : ''}
+                    ${parciaisHtml ? `<div class="history-list">${parciaisHtml}</div>` : ''}
+                    ${af.mot_cancelamento_saldo ? `<div style="font-size:0.75rem; color:#ef4444; margin-top:2px;"><b>Cancelado:</b> ${af.mot_cancelamento_saldo}</div>` : ''}
+                </td>
+                <td>
+                    <button class="btn btn-cobranca no-print" onclick="openModalCobranca(${af.id})">📞 Cobrar (${af.cobrancas ? af.cobrancas.length : 0})</button>
+                    ${cobrancasHtml ? `<div class="history-list">${cobrancasHtml}</div>` : ''}
+                    ${af.observacoes ? `<div style="font-size:0.75rem; color:#475569; margin-top:4px;"><b>Obs:</b> ${escapeHtml(af.observacoes)}</div>` : ''}
+                </td>
+                <td>
+                    <select onchange="tratarMudancaStatusSelect(${af.id}, this.value)" style="width: auto; font-weight: bold;">
+                        <option value="Regular" ${currentStatus === 'Regular' ? 'selected' : ''}>Regular</option>
+                        <option value="Cobrado" ${currentStatus === 'Cobrado' ? 'selected' : ''}>Cobrar</option>
+                        <option value="Notificado" ${currentStatus === 'Notificado' ? 'selected' : ''}>Notificado</option>
+                        <option value="Advertido" ${currentStatus === 'Advertido' ? 'selected' : ''}>Advertir</option>
+                        <option value="Multado" ${currentStatus === 'Multado' ? 'selected' : ''}>Multar</option>
+                        <option value="Entrega Parcial" ${currentStatus === 'Entrega Parcial' ? 'selected' : ''}>Entrega Parcial</option>
+                        <option value="Saldo Cancelado" ${currentStatus === 'Saldo Cancelado' ? 'selected' : ''}>Saldo Cancelado</option>
+                        <option value="Entregue" ${currentStatus === 'Entregue' ? 'selected' : ''}>Entregue / Concluído</option>
+                    </select>
+                    ${af.obs_sancao ? `<div style="font-size:0.75rem; color:#dc2626; margin-top:4px;"><b>Obs Sanção:</b> ${escapeHtml(af.obs_sancao)}</div>` : ''}
+                </td>
+                <td class="actions-cell no-print">
+                    <button type="button" class="btn btn-edit" onclick="editAf(${af.id})">✏️ Editar</button>
+                    ${af.anexo_notificacao 
+                        ? `<a href="${af.anexo_notificacao}" target="_blank" class="btn btn-mini" style="background:#16a34a; text-decoration:none;">📄 Ver PDF</a>
+                           <button type="button" class="btn btn-oficio btn-mini" onclick="openModalAnexoNotificacao(${af.id})">📎 Trocar PDF</button>` 
+                        : `<button type="button" class="btn btn-oficio" onclick="openModalAnexoNotificacao(${af.id})">📎 Anexar PDF</button>`
+                    }
+                    <button type="button" class="btn-delete" onclick="deleteAf(${af.id})">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function formatDate(dateStr) {
+        if(!dateStr) return '-';
+        const parts = dateStr.split('-');
+        if(parts.length !== 3) return dateStr;
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function exportExcel() {
+        if (afs.length === 0) return;
+        const dataToExport = afs.map(af => ({ 'Setor': af.setor, 'Nº AF': af.numaf || af.numAf, 'Fornecedor': af.fornecedor, 'Valor Total': af.valortotal || 0, 'Status': af.statussancao }));
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "AFs");
+        XLSX.writeFile(workbook, "Controle_AFs_Avare.xlsx");
+    }
+
+    function downloadModelo() {
+        const modelo = [{ 'Setor': 'Básica/Rede', 'Nº AF': 'AF 001/2026', 'Fornecedor': 'Exemplo LTDA', 'Valor Total': 1000.00, 'Prazo Entrega': '15/08/2026', 'Status': 'Regular' }];
+        const worksheet = XLSX.utils.json_to_sheet(modelo);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Modelo");
+        XLSX.writeFile(workbook, "Modelo_Importacao.xlsx");
+    }
+
+    async function importExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
+            let newRows = [];
+            jsonRows.forEach((row) => {
+                if (row['Nº AF'] && row['Fornecedor']) {
+                    newRows.push({
+                        setor: row['Setor'] || 'Básica/Rede',
+                        numaf: String(row['Nº AF']).trim(),
+                        fornecedor: String(row['Fornecedor']).trim(),
+                        valortotal: parseFloat(row['Valor Total'] || 0),
+                        prazoentrega: row['Prazo Entrega'] || '',
+                        statussancao: row['Status'] || 'Regular',
+                        cobrancas: [], parciais: []
+                    });
+                }
+            });
+            if (newRows.length > 0) {
+                await _supabase.from('afs').insert(newRows);
+                registrarLog(`Importou ${newRows.length} AFs via Excel`);
+                alert(`✅ ${newRows.length} registros importados!`);
+                fetchAfs();
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    window.addEventListener('load', () => { if (afs.length) updateV2Dashboard(); });
+
+    /* ====== MOTOR CENTRAL DA IA (GEMINI COM FALLBACK) ====== */
+    async function chamarGeminiIA(prompt, temperatura = 0.2) {
+        const { data, error } = await _supabase.functions.invoke('gemini-ai', {
+            body: { prompt, temperature: temperatura }
+        });
+        if (error) throw error;
+        const texto = (data?.text || '').trim();
+        if (!texto) throw new Error('A IA não retornou conteúdo.');
+        return texto;
+    }
+
+    /* ====== 1. LEITOR INTELIGENTE DE PDF DE AF / EMPENHO ====== */
+    async function extrairTextoDoPDF(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let textoCompleto = '';
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const strings = content.items.map(item => item.str);
+            textoCompleto += strings.join(' ') + '\n';
+        }
+        return textoCompleto;
+    }
+
+    async function processarPdfComIA(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const btn = document.getElementById('btn-importar-pdf-af');
+        const textoOriginalBtn = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Lendo PDF com IA...';
+
+        try {
+            const textoPdf = await extrairTextoDoPDF(file);
+
+            if (!textoPdf.trim()) {
+                alert('⚠️ Não foi possível extrair texto deste PDF (ele parece ser uma imagem escaneada sem camada de texto).');
+                return;
+            }
+
+            const nomesSetores = setores.map(s => s.nome).join(', ') || 'Básica/Rede, Pronto-socorro, Mandado Judicial/Case, Enfermagem';
+
+            const promptExtracao = `
+Você é um assistente especialista do Almoxarifado da Saúde da Prefeitura de Avaré.
+Analise o texto extraído do PDF de uma Autorização de Fornecimento (AF) ou Nota de Empenho abaixo e retorne APENAS um JSON puro (sem blocos \`\`\`json, sem crases e sem texto extra) neste formato exato:
+
+{
+  "numaf": "número da AF ou processo (ex: AF 11919/26). Se não achar, deixe vazio",
+  "numempenho": "número do empenho (ex: 00402/26). Se não achar, deixe vazio",
+  "fornecedor": "Razão social completa do fornecedor",
+  "setor": "Escolha OBRIGATORIAMENTE uma destas opções exatas com base nos itens/destinação: [${nomesSetores}]",
+  "valortotal": 1250.50,
+  "vigenciaata": "YYYY-MM-DD se houver data de vigência da ata/contrato, senão null",
+  "prazoentrega": "YYYY-MM-DD se houver data limite de entrega explícita, senão null",
+  "produtos": "Lista resumida e organizada dos itens, quantidades e valores unitários (ex: 500 UN - Dipirona Sódica 500mg (R$ 0,15/un); 200 CX - Luva Procedimento M (R$ 22,00/cx))",
+  "observacoes": "Prazo em dias mencionado no documento, nº do pregão/ata ou observação relevante"
+}
+
+Regras:
+- "valortotal" deve ser número decimal com ponto (ex: 1540.90), nunca string com R$.
+- Datas devem estar estritamente no formato YYYY-MM-DD ou null.
+
+Texto do PDF:
+${textoPdf.substring(0, 15000)}
+`;
+
+            const respostaIA = await chamarGeminiIA(promptExtracao, 0.1);
+            const jsonLimpo = respostaIA.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const dados = JSON.parse(jsonLimpo);
+
+            resetForm();
+
+            if (dados.numaf) document.getElementById('numAf').value = dados.numaf;
+            if (dados.numempenho) document.getElementById('numEmpenho').value = dados.numempenho;
+            if (dados.fornecedor) document.getElementById('fornecedor').value = dados.fornecedor;
+            if (dados.valortotal !== null && dados.valortotal !== undefined) {
+                document.getElementById('valorTotal').value = Number(dados.valortotal).toFixed(2);
+            }
+            if (dados.vigenciaata) document.getElementById('vigenciaAta').value = dados.vigenciaata;
+            if (dados.produtos) document.getElementById('produtosText').value = dados.produtos;
+            if (dados.observacoes) document.getElementById('observacoes').value = dados.observacoes;
+
+            if (dados.setor) {
+                const selectSetor = document.getElementById('setor');
+                const opcaoExata = Array.from(selectSetor.options).find(
+                    opt => opt.value.toLowerCase() === dados.setor.toLowerCase()
+                );
+                if (opcaoExata) selectSetor.value = opcaoExata.value;
+            }
+
+            if (dados.prazoentrega) {
+                document.getElementById('prazoEntrega').value = dados.prazoentrega;
+            } else {
+                const diasPadrao = parseInt(configSys.prazo_padrao_dias) || 15;
+                const dataLimite = new Date();
+                dataLimite.setDate(dataLimite.getDate() + diasPadrao);
+                document.getElementById('prazoEntrega').value = dataLimite.toISOString().split('T')[0];
+            }
+
+            const fornExiste = fornecedoresList.some(
+                f => (f.razao_social || '').toLowerCase() === (dados.fornecedor || '').toLowerCase()
+            );
+
+            registrarLog(`Importou dados do PDF (${file.name}) via IA`, dados.numaf || '-');
+
+            alert(
+                `✅ PDF lido com sucesso!\n\n` +
+                `• AF: ${dados.numaf || 'Não identificada'}\n` +
+                `• Fornecedor: ${dados.fornecedor || 'Não identificado'}${!fornExiste && dados.fornecedor ? ' (Novo na agenda)' : ''}\n` +
+                `• Valor: R$ ${Number(dados.valortotal || 0).toFixed(2)}\n\n` +
+                `Confira os campos preenchidos e clique em "Salvar AF".`
+            );
+
+        } catch (erro) {
+            console.error('Erro ao ler PDF com IA:', erro);
+            alert('❌ Não foi possível interpretar o PDF: ' + erro.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = textoOriginalBtn;
+            event.target.value = '';
+        }
+    }
+
+    /* ====== FRASES MOTIVACIONAIS COM IA (GEMINI) ====== */
+    const frasesFallback = [
+        { texto: "A excelência não é um ato, mas um hábito.", autor: "Aristóteles" },
+        { texto: "Cada pendência resolvida hoje é tranquilidade garantida amanhã.", autor: "Foco & Produtividade" },
+        { texto: "Cuidar da logística da saúde é garantir que o cuidado chegue a quem mais precisa.", autor: "Almoxarifado da Saúde" },
+        { texto: "Organização é o que você faz antes de fazer alguma coisa, para que não fique tudo bagunçado.", autor: "A. A. Milne" },
+        { texto: "O sucesso é a soma de pequenos esforços repetidos dia após dia.", autor: "Robert Collier" }
+    ];
+
+    async function sortearFraseMotivacional(forcarNova = false) {
+        const elTexto = document.getElementById('fraseTexto');
+        const elAutor = document.getElementById('fraseAutor');
+        if (!elTexto || !elAutor) return;
+
+        const hojeStr = new Date().toISOString().split('T')[0];
+        const cacheSalvo = JSON.parse(localStorage.getItem('af_frase_ia_cache') || 'null');
+
+        if (!forcarNova && cacheSalvo && cacheSalvo.data === hojeStr) {
+            elTexto.innerText = `"${cacheSalvo.texto}"`;
+            elAutor.innerText = `— ${cacheSalvo.autor}`;
+            return;
+        }
+
+        elTexto.innerText = "✨ Gerando inspiração com IA...";
+        elAutor.innerText = "";
+
+        try {
+            const prompt = `Gere uma frase motivacional curta, inspiradora e original (máximo 2 linhas) para uma equipe que trabalha no Almoxarifado da Saúde cuidando de compras, organização e entregas de medicamentos e insumos. Pode ser uma citação real famosa ou uma reflexão autoral. Responda APENAS no formato JSON puro: {"texto": "...", "autor": "..."} sem blocos markdown.`;
+
+            const rawText = await chamarGeminiIA(prompt, 0.95);
+            const jsonLimpo = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const resultado = JSON.parse(jsonLimpo);
+
+            elTexto.innerText = `"${resultado.texto}"`;
+            elAutor.innerText = `— ${resultado.autor || 'IA Inspiração'}`;
+
+            localStorage.setItem('af_frase_ia_cache', JSON.stringify({
+                data: hojeStr,
+                texto: resultado.texto,
+                autor: resultado.autor || 'IA Inspiração'
+            }));
+
+        } catch (error) {
+            console.warn("Fallback ativado:", error.message);
+            const reserva = frasesFallback[Math.floor(Math.random() * frasesFallback.length)];
+            elTexto.innerText = `"${reserva.texto}"`;
+            elAutor.innerText = `— ${reserva.autor}`;
+        }
+    }
+
+    /* ====== 2. BRIEFING MATINAL DE GARGALOS E ALERTAS COM IA ====== */
+    async function gerarBriefingGargalosIA(forcarAtualizacao = false) {
+        const box = document.getElementById('iaBriefingConteudo');
+        const sub = document.getElementById('iaBriefingSub');
+        const btn = document.getElementById('btnAtualizarBriefing');
+        if (!box) return;
+
+        const afsAbertas = afs.filter(af => !isClosed(af));
+
+        if (afsAbertas.length === 0) {
+            box.innerHTML = '✅ <strong>Tudo em dia!</strong> Nenhuma AF pendente ou em atraso encontrada no momento.';
+            return;
+        }
+
+        const hojeStr = new Date().toISOString().split('T')[0];
+        const cacheKey = 'af_briefing_ia_cache';
+        const cacheSalvo = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+
+        if (!forcarAtualizacao && cacheSalvo && cacheSalvo.data === hojeStr && cacheSalvo.totalAbertas === afsAbertas.length) {
+            box.innerHTML = cacheSalvo.html;
+            if (sub && cacheSalvo.hora) sub.innerText = `Atualizado hoje às ${cacheSalvo.hora} • ${afsAbertas.length} AF(s) ativa(s) analisada(s)`;
+            return;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = '⏳ Analisando...';
+        }
+        box.innerHTML = '✨ <em>A IA está analisando prazos, cobranças e saldos pendentes para montar as prioridades de hoje...</em>';
+
+        try {
+            const resumoAfs = afsAbertas
+                .map(af => {
+                    const diasPrazo = daysFromToday(af.prazoentrega || af.prazoEntrega);
+                    const diasVigencia = daysFromToday(af.vigenciaata || af.vigenciaAta);
+                    return {
+                        af: af.numaf || af.numAf,
+                        setor: af.setor,
+                        fornecedor: af.fornecedor,
+                        status: afStatus(af),
+                        saldo_pendente: afPending(af).toFixed(2),
+                        dias_para_prazo: diasPrazo,
+                        dias_para_vigencia: diasVigencia,
+                        qtd_cobrancas: (af.cobrancas || []).length
+                    };
+                })
+                .sort((a, b) => (a.dias_para_prazo ?? 999) - (b.dias_para_prazo ?? 999))
+                .slice(0, 25);
+
+            const promptBriefing = `
+Você é o Coordenador de Logística do Almoxarifado da Saúde da Prefeitura de Avaré.
+Analise os dados abaixo das Autorizações de Fornecimento (AFs) em aberto hoje (${new Date().toLocaleDateString('pt-BR')}) e escreva um **Briefing Matinal de Prioridades** direto e objetivo.
+
+Regras de formatação:
+- Retorne APENAS HTML limpo usando uma lista <ul style="padding-left: 18px; display: flex; flex-direction: column; gap: 6px;"> com 3 a 4 itens <li> (sem blocos \`\`\`html, sem título repetido).
+- Use emojis no início de cada item (🔴 para atrasos críticos/sanções, 🟡 para vencimentos hoje ou próximos 3 dias, 📦 para entregas parciais paradas ou atas vencendo, 💡 para recomendação prática de ação).
+- Cite números reais de AF, nomes dos fornecedores e valores quando relevante.
+- Seja conciso: máximo de 2 linhas por item.
+
+Dados das AFs ativas (dias_para_prazo negativo significa dias em atraso):
+${JSON.stringify(resumoAfs)}
+`;
+
+            const respostaHtml = await chamarGeminiIA(promptBriefing, 0.3);
+            const htmlLimpo = respostaHtml.replace(/```html/gi, '').replace(/```/g, '').trim();
+            const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            box.innerHTML = htmlLimpo;
+            if (sub) sub.innerText = `Atualizado hoje às ${horaAtual} • ${afsAbertas.length} AF(s) ativa(s) analisada(s)`;
+
+            localStorage.setItem(cacheKey, JSON.stringify({
+                data: hojeStr,
+                hora: horaAtual,
+                totalAbertas: afsAbertas.length,
+                html: htmlLimpo
+            }));
+
+        } catch (erro) {
+            console.warn('Falha ao gerar briefing IA:', erro.message);
+            const atrasadas = afsAbertas.filter(a => (daysFromToday(a.prazoentrega || a.prazoEntrega) ?? 1) < 0);
+            const vencemHoje = afsAbertas.filter(a => daysFromToday(a.prazoentrega || a.prazoEntrega) === 0);
+            box.innerHTML = `
+                <ul style="padding-left: 18px;">
+                    <li>🔴 <strong>${atrasadas.length} AF(s) em atraso</strong> precisam de cobrança ou notificação imediata.</li>
+                    <li>🟡 <strong>${vencemHoje.length} AF(s)</strong> têm prazo de entrega vencendo hoje.</li>
+                    <li>📦 Total de <strong>${afsAbertas.length} AF(s) ativas</strong> em acompanhamento no painel.</li>
+                </ul>
+            `;
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = '🔄 Atualizar';
+         }
+     }
+ }
+                
+    /* ====== 3. GERADOR DE COBRANÇA FORMAL PARA FORNECEDORES ====== */
+    // Atualiza o openModalCobranca para já sugerir o tom ideal e limpar o texto anterior
+    const _openModalCobrancaOriginal = openModalCobranca;
+    openModalCobranca = function(id) {
+        _openModalCobrancaOriginal(id);
+        const af = afs.find(item => item.id === id);
+        const txtArea = document.getElementById('textoCobrancaGerado');
+        const selectTom = document.getElementById('cobrancaTom');
+        if (txtArea) txtArea.value = '';
+        if (af && selectTom) {
+            const qtd = (af.cobrancas || []).length;
+            if (qtd === 0) selectTom.value = 'amigavel';
+            else if (qtd === 1) selectTom.value = 'firme';
+            else selectTom.value = 'notificacao';
+        }
+    };
+
+    async function gerarMensagemCobrancaIA() {
+        const id = parseInt(document.getElementById('cobrancaAfId').value);
+        const af = afs.find(item => item.id === id);
+        if (!af) return;
+
+        const btn = document.getElementById('btnGerarTextoCobranca');
+        const txtArea = document.getElementById('textoCobrancaGerado');
+        const tom = document.getElementById('cobrancaTom').value;
+
+        btn.disabled = true;
+        btn.innerText = '⏳ Redigindo...';
+        txtArea.value = '✨ A IA está redigindo a mensagem oficial com os dados da AF...';
+
+        try {
+            const diasPrazo = daysFromToday(af.prazoentrega || af.prazoEntrega);
+            const situacaoPrazo = diasPrazo === null
+                ? 'prazo não informado'
+                : (diasPrazo < 0 ? `em atraso há ${Math.abs(diasPrazo)} dia(s)` : (diasPrazo === 0 ? 'vence hoje' : `vence em ${diasPrazo} dia(s)`));
+
+            const saldo = afPending(af).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const qtdCob = (af.cobrancas || []).length;
+
+            const instrucaoTom = {
+                amigavel: 'Tom cordial e colaborativo de 1º lembrete, solicitando previsão de entrega ou código de rastreio.',
+                firme: 'Tom formal, firme e urgente de 2ª cobrança, ressaltando o impacto no abastecimento da rede pública de saúde.',
+                notificacao: 'Tom administrativo rigoroso de último aviso antes de abertura de processo de notificação formal e sanções contratuais previstas na Lei de Licitações.'
+            }[tom];
+
+            const promptCobranca = `
+Você é um servidor do Almoxarifado da Saúde da Prefeitura da Estância Turística de Avaré.
+Redija uma mensagem oficial de cobrança de entrega para enviar ao fornecedor abaixo.
+
+Dados da Autorização de Fornecimento:
+- Fornecedor: ${af.fornecedor}
+- Nº AF / Processo: ${af.numaf || af.numAf}
+- Nº Empenho: ${af.numempenho || af.numEmpenho || 'Não informado'}
+- Setor Solicitante: ${af.setor || 'Saúde'}
+- Prazo de Entrega: ${formatDate(af.prazoentrega || af.prazoEntrega)} (${situacaoPrazo})
+- Saldo Pendente a Entregar: ${saldo}
+- Itens/Produtos: ${af.produtos || 'Conforme descrito na AF'}
+- Cobranças anteriores já registradas: ${qtdCob}
+
+Diretriz de tom: ${instrucaoTom}
+
+Regras:
+- Escreva o texto pronto para enviar por WhatsApp ou E-mail (com saudação, identificação clara da Prefeitura de Avaré - Almoxarifado da Saúde, dados da AF/Empenho e pedido objetivo de retorno imediato).
+- Não use placeholders entre colchetes como [Seu Nome]; assine como "Equipe do Almoxarifado da Saúde — Prefeitura da Estância Turística de Avaré".
+- Retorne APENAS o texto da mensagem, sem explicações extras.
+`;
+
+            const mensagem = await chamarGeminiIA(promptCobranca, 0.35);
+            txtArea.value = mensagem;
+
+            // Preenche automaticamente o resumo curto no campo de histórico se estiver vazio
+            const campoObs = document.getElementById('cobrancaObs');
+            if (campoObs && !campoObs.value.trim()) {
+                campoObs.value = `Cobrança formal enviada (${qtdCob + 1}º contato)`;
+            }
+        } catch (erro) {
+            txtArea.value = '';
+            alert('❌ Erro ao gerar texto de cobrança: ' + erro.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '✨ Gerar Texto';
+        }
+    }
+
+    function copiarTextoCobranca() {
+        const texto = document.getElementById('textoCobrancaGerado').value.trim();
+        if (!texto) {
+            alert('Gere ou escreva uma mensagem primeiro.');
+            return;
+        }
+        navigator.clipboard.writeText(texto).then(() => {
+            alert('✅ Mensagem copiada! Agora é só colar no WhatsApp ou E-mail.');
+        });
+    }
+
+    function buscarContatoFornecedorDaAf(af) {
+        if (!af || !af.fornecedor) return null;
+        const nomeAlvo = af.fornecedor.trim().toLowerCase();
+        return fornecedoresList.find(f =>
+            (f.razao_social || '').trim().toLowerCase().includes(nomeAlvo) ||
+            nomeAlvo.includes((f.razao_social || '').trim().toLowerCase())
+        ) || null;
+    }
+
+    function enviarCobrancaWhatsApp() {
+        const id = parseInt(document.getElementById('cobrancaAfId').value);
+        const af = afs.find(item => item.id === id);
+        const texto = document.getElementById('textoCobrancaGerado').value.trim();
+        if (!texto) {
+            alert('Clique em "✨ Gerar Texto" antes de abrir o WhatsApp.');
+            return;
+        }
+
+        const forn = buscarContatoFornecedorDaAf(af);
+        const telLimpo = forn && forn.telefone ? forn.telefone.replace(/\D/g, '') : '';
+        const numeroWhats = telLimpo ? (telLimpo.startsWith('55') ? telLimpo : `55${telLimpo}`) : '';
+        const url = numeroWhats
+            ? `https://wa.me/${numeroWhats}?text=${encodeURIComponent(texto)}`
+            : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+
+        window.open(url, '_blank');
+    }
+
+    function enviarCobrancaEmail() {
+        const id = parseInt(document.getElementById('cobrancaAfId').value);
+        const af = afs.find(item => item.id === id);
+        const texto = document.getElementById('textoCobrancaGerado').value.trim();
+        if (!texto) {
+            alert('Clique em "✨ Gerar Texto" antes de abrir o e-mail.');
+            return;
+        }
+
+        const forn = buscarContatoFornecedorDaAf(af);
+        const emailDestino = forn && forn.email ? forn.email.split(/[,;]+/)[0].trim() : '';
+        const assunto = `Cobrança de Entrega - ${af ? (af.numaf || af.numAf) : 'AF'} - Almoxarifado da Saúde de Avaré`;
+        const mailto = `mailto:${encodeURIComponent(emailDestino)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
+
+        window.location.href = mailto;
+    }
+/* ====== 4. COPILOTO DE CONSULTA RÁPIDA ("PERGUNTE AO ALMOXARIFADO") ====== */
+    async function perguntarAoAlmoxarifadoIA() {
+        const input = document.getElementById('inputPerguntaIA');
+        const box = document.getElementById('boxRespostaIA');
+        const btn = document.getElementById('btnPerguntarIA');
+        const btnLimpar = document.getElementById('btnLimparPerguntaIA');
+
+        const pergunta = (input.value || '').trim();
+        if (!pergunta) {
+            input.focus();
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = '⏳ Consultando...';
+        box.style.display = 'block';
+        box.innerHTML = '✨ <em>Consultando a base de AFs e cruzando prazos, fornecedores e itens...</em>';
+
+        try {
+            // Envia um resumo leve de todas as AFs (até 80 registros) para a IA responder com precisão
+            const baseCompacta = afs.slice(0, 80).map(af => ({
+                af: af.numaf || af.numAf,
+                empenho: af.numempenho || af.numEmpenho || '',
+                setor: af.setor,
+                fornecedor: af.fornecedor,
+                status: afStatus(af),
+                valor_total: afTotal(af),
+                saldo_pendente: afPending(af),
+                prazo: af.prazoentrega || af.prazoEntrega || '',
+                dias_prazo: daysFromToday(af.prazoentrega || af.prazoEntrega),
+                vigencia: af.vigenciaata || af.vigenciaAta || '',
+                produtos: (af.produtos || '').substring(0, 180)
+            }));
+
+            const promptConsulta = `
+Você é o Copiloto Inteligente do Almoxarifado da Saúde da Prefeitura de Avaré.
+Responda à pergunta do servidor com base EXCLUSIVAMENTE nos registros de AFs fornecidos abaixo.
+
+Pergunta do servidor: "${pergunta}"
+
+Regras:
+- Responda em português claro, direto e organizado (use tópicos <ul><li> se listar várias AFs).
+- Sempre cite o número da AF, o fornecedor, o setor e o valor/prazo quando aplicável.
+- Se não encontrar nenhuma AF correspondente na base, diga isso claramente.
+- Retorne apenas HTML simples (<p>, <ul>, <li>, <strong>), sem blocos \`\`\`html.
+
+Base de AFs cadastradas (${afs.length} no total):
+${JSON.stringify(baseCompacta)}
+`;
+
+            const resposta = await chamarGeminiIA(promptConsulta, 0.2);
+            const htmlLimpo = resposta.replace(/```html/gi, '').replace(/```/g, '').trim();
+
+            box.innerHTML = htmlLimpo;
+            if (btnLimpar) btnLimpar.style.display = 'inline-flex';
+        } catch (erro) {
+            box.innerHTML = `<span style="color:#dc2626;">❌ Erro ao consultar IA: ${escapeHtml(erro.message)}</span>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '✨ Perguntar à IA';
+        }
+    }
+
+    function limparRespostaIA() {
+        document.getElementById('inputPerguntaIA').value = '';
+        document.getElementById('boxRespostaIA').style.display = 'none';
+        document.getElementById('boxRespostaIA').innerHTML = '';
+        document.getElementById('btnLimparPerguntaIA').style.display = 'none';
+    }
+</script>
+</body>
+</html>
