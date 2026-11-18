@@ -886,33 +886,44 @@ body {
         document.getElementById(id).classList.toggle('closed');
     }
 
-    function abrirModulo(modulo) {
-        document.querySelectorAll('.module-view').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-        const view = document.getElementById('view-' + modulo);
-const btn = document.getElementById('btn-mod-' + modulo);
+   
+function abrirModulo(modulo) {
+    document.querySelectorAll('.module-view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
 
-        const view = document.getElementById('view-' + modulo);
-        const btn = document.getElementById('btn-mod-' + modulo);
-        if (view) view.classList.add('active');
-        if (btn) btn.classList.add('active');
+    const view = document.getElementById('view-' + modulo);
+    const btn = document.getElementById('btn-mod-' + modulo);
 
-        const titulos = {
-            compras: ['Controle de Compras & Pedidos', 'Gestão de solicitações, quantidades pedidas, entregas recebidas e saldos'],
-            afs: ['Controle Interno de AFs', 'Autorizações de Fornecimento, empenhos, cobranças e vigências'],
-            whatsapp: ['Central de Atendimento WhatsApp', 'Comunicação integrada por setores do Almoxarifado da Saúde'],
-            integracao: ['Painel Consolidado (Pedidos × AFs)', 'Cruzamento automático entre solicitações de compra e AFs emitidas']
-        };
+    // Carrega o módulo AFs somente após o acesso ao portal
+    if (modulo === 'afs') {
+        const iframe = document.getElementById('iframeAfs');
 
-        if (titulos[modulo]) {
-            document.getElementById('topTitle').innerText = titulos[modulo][0];
-            document.getElementById('topSub').innerText = titulos[modulo][1];
-        }
-
-        if (modulo === 'integracao') {
-            renderizarCruzamento();
+        if (iframe && !iframe.dataset.carregado) {
+            iframe.src = iframe.dataset.src;
+            iframe.dataset.carregado = 'true';
         }
     }
+
+    if (view) view.classList.add('active');
+    if (btn) btn.classList.add('active');
+
+    const titulos = {
+        compras: ['Controle de Compras & Pedidos', 'Gestão de solicitações, quantidades pedidas, entregas recebidas e saldos'],
+        afs: ['Controle Interno de AFs', 'Autorizações de Fornecimento, empenhos, cobranças e vigências'],
+        whatsapp: ['Central de Atendimento WhatsApp', 'Comunicação integrada por setores do Almoxarifado da Saúde'],
+        integracao: ['Painel Consolidado (Pedidos × AFs)', 'Cruzamento automático entre solicitações de compra e AFs emitidas']
+    };
+
+    if (titulos[modulo]) {
+        document.getElementById('topTitle').innerText = titulos[modulo][0];
+        document.getElementById('topSub').innerText = titulos[modulo][1];
+    }
+
+    if (modulo === 'integracao') {
+        renderizarCruzamento();
+    }
+}
+
 
     // 3. CARREGAMENTO DE DADOS DO SUPABASE
     async function inicializarDadosPortal() {
