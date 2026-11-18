@@ -557,6 +557,17 @@
     <button type="button" class="alphabet-btn" onclick="setLetterFilter('0-9')">0-9</button>
 </div>
 
+<!-- Funcionalidade 4: Copiloto de Consulta Rápida ("Pergunte ao Almoxarifado") -->
+<div class="card no-print" style="background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%) !important; border: 1px solid #bfdbfe; border-left: 5px solid #2563eb; padding: 14px 18px; margin-bottom: 15px;">
+    <form onsubmit="event.preventDefault(); perguntarAoAlmoxarifadoIA();" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <span style="font-size: 1.15rem;">💬</span>
+        <input type="text" id="inputPerguntaIA" placeholder="Pergunte à IA sobre as AFs (ex: Quais AFs estão atrasadas? Quanto falta da Medilar? Tem AF de luva?)" style="flex: 1; min-width: 260px; background: #fff; border: 1px solid #93c5fd;">
+        <button type="submit" id="btnPerguntarIA" style="background: #1d4ed8; padding: 9px 16px;">✨ Perguntar à IA</button>
+        <button type="button" id="btnLimparPerguntaIA" class="btn btn-outline" style="display: none; background: #fff;" onclick="limparRespostaIA()">✕ Limpar</button>
+    </form>
+    <div id="boxRespostaIA" style="display: none; margin-top: 12px; padding: 12px 14px; background: #fff; border-radius: 8px; border: 1px solid #dbeafe; font-size: 0.88rem; color: #1e293b; line-height: 1.6;"></div>
+</div>
+    
 <!-- Controles de Filtro e Ordenação -->
 <div id="mainControls" class="controls no-print">
     <div class="controls-group">
@@ -2670,6 +2681,75 @@ Regras:
         const mailto = `mailto:${encodeURIComponent(emailDestino)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
 
         window.location.href = mailto;
+    }
+/* ====== 4. COPILOTO DE CONSULTA RÁPIDA ("PERGUNTE AO ALMOXARIFADO") ====== */
+    async function perguntarAoAlmoxarifadoIA() {
+        const input = document.getElementById('inputPerguntaIA');
+        const box = document.getElementById('boxRespostaIA');
+        const btn = document.getElementById('btnPerguntarIA');
+        const btnLimpar = document.getElementById('btnLimparPerguntaIA');
+
+        const pergunta = (input.value || '').trim();
+        if (!pergunta) {
+            input.focus();
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = '⏳ Consultando...';
+        box.style.display = 'block';
+        box.innerHTML = '✨ <em>Consultando a base de AFs e cruzando prazos, fornecedores e itens...</em>';
+
+        try {
+            // Envia um resumo leve de todas as AFs (até 80 registros) para a IA responder com precisão
+            const baseCompacta = afs.slice(0, 80).map(af => ({
+                af: af.numaf || af.numAf,
+                empenho: af.numempenho || af.numEmpenho || '',
+                setor: af.setor,
+                fornecedor: af.fornecedor,
+                status: afStatus(af),
+                valor_total: afTotal(af),
+                saldo_pendente: afPending(af),
+                prazo: af.prazoentrega || af.prazoEntrega || '',
+                dias_prazo: daysFromToday(af.prazoentrega || af.prazoEntrega),
+                vigencia: af.vigenciaata || af.vigenciaAta || '',
+                produtos: (af.produtos || '').substring(0, 180)
+            }));
+
+            const promptConsulta = `
+Você é o Copiloto Inteligente do Almoxarifado da Saúde da Prefeitura de Avaré.
+Responda à pergunta do servidor com base EXCLUSIVAMENTE nos registros de AFs fornecidos abaixo.
+
+Pergunta do servidor: "${pergunta}"
+
+Regras:
+- Responda em português claro, direto e organizado (use tópicos <ul><li> se listar várias AFs).
+- Sempre cite o número da AF, o fornecedor, o setor e o valor/prazo quando aplicável.
+- Se não encontrar nenhuma AF correspondente na base, diga isso claramente.
+- Retorne apenas HTML simples (<p>, <ul>, <li>, <strong>), sem blocos \`\`\`html.
+
+Base de AFs cadastradas (${afs.length} no total):
+${JSON.stringify(baseCompacta)}
+`;
+
+            const resposta = await chamarGeminiIA(promptConsulta, 0.2);
+            const htmlLimpo = resposta.replace(/```html/gi, '').replace(/```/g, '').trim();
+
+            box.innerHTML = htmlLimpo;
+            if (btnLimpar) btnLimpar.style.display = 'inline-flex';
+        } catch (erro) {
+            box.innerHTML = `<span style="color:#dc2626;">❌ Erro ao consultar IA: ${escapeHtml(erro.message)}</span>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '✨ Perguntar à IA';
+        }
+    }
+
+    function limparRespostaIA() {
+        document.getElementById('inputPerguntaIA').value = '';
+        document.getElementById('boxRespostaIA').style.display = 'none';
+        document.getElementById('boxRespostaIA').innerHTML = '';
+        document.getElementById('btnLimparPerguntaIA').style.display = 'none';
     }
 </script>
 </body>
