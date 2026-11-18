@@ -990,15 +990,6 @@
             return;
         }
 
-        // 1. Bypass Admin
-        if (userIn === 'admin' && (passIn === '123' || passIn === 'admin')) {
-            usuarioLogado = { nome: 'Gabriel Antunes', usuario: 'admin', cargo: 'Almoxarife' };
-            sessionStorage.setItem('user_session', JSON.stringify(usuarioLogado));
-            fecharTelaLogin(usuarioLogado.nome);
-            initApp();
-            return;
-        }
-
         // 2. Consulta Supabase
         try {
             const { data, error } = await _supabase.from('usuarios').select('*');
