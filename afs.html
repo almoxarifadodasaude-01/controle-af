@@ -522,28 +522,25 @@ tr:last-child td {
 </div>
 
 <!-- Cabeçalho Oficial Web -->
+
+<!-- Cabeçalho Oficial Minimalista -->
 <div id="mainHeader" class="header-official">
     <div>
         <h1>Prefeitura da Estância Turística de Avaré</h1>
         <h2>Almoxarifado da Saúde — Controle Interno de AFs</h2>
     </div>
-    <div class="no-print" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <span class="status-online"><span class="status-dot"></span> <span id="loggedUserName">Usuário</span></span>
-        
-        <!-- Novo Seletor de Cor de Fundo -->
-        <div class="bg-picker-wrapper" title="Alterar cor de fundo do site">
-            <span>🎨 Fundo:</span>
-            <input type="color" id="bgColorPicker" value="#f1f5f9" oninput="mudarCorFundo(this.value)">
-            <button type="button" class="btn-reset-bg" onclick="resetarCorFundo()" title="Restaurar cor padrão">↺</button>
-        </div>
 
-        <button type="button" class="btn" style="background: #334155;" onclick="openModalConfig()">⚙️ Configurações</button>
-        <button type="button" class="btn" style="background: #475569;" onclick="openModalLogs()">📜 Histórico / Logs</button>
-        <button type="button" class="btn" style="background: #0284c7;" onclick="openModalSetores()">🎨 Setores</button>
-        <button type="button" class="btn" style="background: #0d9488;" onclick="openModalFornecedores()">📖 Fornecedores</button>
-        <button type="button" class="btn" style="background: #8b5cf6;" onclick="openModalUsuarios()">👥 Funcionários</button>
-        <button type="button" class="btn btn-outline" onclick="openModalRelatorio()">🖨️ Relatórios</button>
-        <button type="button" class="btn btn-outline" style="color: #ef4444;" onclick="logout()">Sair</button>
+    <div class="no-print header-user-area">
+        <span class="status-online">
+            <span class="status-dot"></span>
+            <span id="loggedUserName">Usuário</span>
+        </span>
+
+        <button type="button" class="btn btn-outline"
+            style="color: #ef4444;"
+            onclick="logout()">
+            Sair
+        </button>
     </div>
 </div>
 
