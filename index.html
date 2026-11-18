@@ -1915,9 +1915,11 @@
         document.getElementById('v2Pendente').textContent=pendente.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
         priority.sort((a,b)=>({danger:0,warning:1,info:2}[a.level]-({danger:0,warning:1,info:2}[b.level])));
         const unique=[]; const ids=new Set(); priority.forEach(x=>{ const k=`${x.id}-${x.tag}`; if(!ids.has(k)){ids.add(k);unique.push(x);} });
-        const box=document.getElementById('priorityList');
-        box.innerHTML=unique.slice(0,8).map(x=>`<div class="priority-item" onclick="focusAf(${x.id})"><div class="priority-main"><div class="priority-title">${escapeHtml(x.title)}</div><div class="priority-meta">${escapeHtml(x.meta)}</div></div><span class="priority-tag tag-${x.level}">${escapeHtml(x.tag)}</span></div>`).join('');
-        if(!box.innerHTML) box.innerHTML='<div class="empty-state">✅ Nenhuma prioridade crítica agora.</div>';
+        const box = document.getElementById('priorityList');
+        if (box) {
+            box.innerHTML = unique.slice(0,8).map(x=>`<div class="priority-item" onclick="focusAf(${x.id})"><div class="priority-main"><div class="priority-title">${escapeHtml(x.title)}</div><div class="priority-meta">${escapeHtml(x.meta)}</div></div><span class="priority-tag tag-${x.level}">${escapeHtml(x.tag)}</span></div>`).join('');
+            if(!box.innerHTML) box.innerHTML='<div class="empty-state">✅ Nenhuma prioridade crítica agora.</div>';
+        }
         const suppliers=new Set(afs.map(a=>String(a.fornecedor||'').trim()).filter(Boolean));
         const setoresAtivos=new Set(afs.map(a=>String(a.setor||'').trim()).filter(Boolean));
         document.getElementById('dataHealth').innerHTML=`<span class="health-pill">📦 ${afs.length} AFs</span><span class="health-pill">🏢 ${suppliers.size} fornecedores</span><span class="health-pill">🎨 ${setoresAtivos.size} setores usados</span><span class="health-pill">📎 ${afs.filter(a=>(a.produtos||'').trim()).length} com itens descritos</span>`;
