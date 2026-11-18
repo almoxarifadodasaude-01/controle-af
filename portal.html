@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIA-Saúde Avaré — Portal Integrado do Almoxarifado</title>
+    <!-- Fontes & Bibliotecas -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
+    <style>
+        :root {
+            --navy: #0f172a;
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #16a34a;
+            --warning: #eab308;
+            --danger: #dc2626;
+            --purple: #7c3aed;
+            --bg-page: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-body: #334155;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --radius-card: 18px;
+            --radius-inner: 12px;
+            --radius-pill: 9999px;
+            --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+        body {
+            background-color: var(--bg-page);
+            background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2364748b' fill-opacity='0.04' fill-rule='evenodd'%3E%3Cpath d='M10 15 a5 5 0 0 1 10 0 v8 a5 5 0 0 1 -10 0 z' /%3E%3Ccircle cx='60' cy='20' r='7' /%3E%3Crect x='50' y='50' width='14' height='12' rx='2' /%3E%3C/g%3E%3C/svg%3E");
+            color: var(--text-body);
+            padding: 16px;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* TELA DE LOGIN */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            background: #0f172a;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .login-card {
+            background: #ffffff;
+            padding: 36px 32px;
+            border-radius: var(--radius-card);
+            width: 100%;
+            max-width: 410px;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+            text-align: center;
+        }
+
+        .login-badge {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: var(--primary);
+            color: #fff;
+            font-weight: 800;
+            font-size: 1.2rem;
+            display: grid;
+            place-items: center;
+            margin: 0 auto 14px;
+        }
+
+        .login-card h2 { color: var(--text-main); font-size: 1.35rem; margin-bottom: 4px; }
+        .login-card p { color: var(--muted); font-size: 0.85rem; margin-bottom: 22px; }
+
+        .login-form { display: flex; flex-direction: column; gap: 14px; text-align: left; }
+        .login-form label { font-size: 0.82rem; font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
+
+        /* LAYOUT PRINCIPAL COM MENU LATERAL EM ÁRVORE */
+        .app-layout {
+            display: none;
+            gap: 16px;
+            max-width: 1600px;
+            margin: 0 auto;
+            min-height: calc(100vh - 32px);
+        }
+
+        .sidebar {
+            width: 270px;
+            background: var(--navy);
+            color: #fff;
+            border-radius: var(--radius-card);
+            padding: 22px 16px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            height: calc(100vh - 32px);
+            position: sticky;
+            top: 16px;
+            box-shadow: var(--shadow);
+            transition: width 0.25s ease, padding 0.25s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 78px;
+            padding: 22px 10px;
+        }
+
+        .sidebar.collapsed .hide-collapsed { display: none; }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 18px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: var(--primary);
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .brand-info b { display: block; font-size: 0.92rem; color: #fff; line-height: 1.2; }
+        .brand-info small { display: block; font-size: 0.72rem; color: #94a3b8; }
+
+        .btn-toggle-side {
+            background: rgba(255, 255, 255, 0.08);
+            color: #cbd5e1;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+        }
+        .btn-toggle-side:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+
+        /* ÁRVORE DE MENU ESTILO ERP MODERNO */
+        .tree-group { margin-bottom: 14px; }
+        .tree-header {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        .tree-header:hover { color: #94a3b8; }
+
+        .tree-items { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+        .tree-items.closed { display: none; }
+
+        .nav-btn {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 11px 14px;
+            border-radius: var(--radius-inner);
+            font-size: 0.87rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+        }
+        .nav-btn:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+        .nav-btn.active { background: var(--primary); color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35); }
+        .nav-icon { font-size: 1.05rem; flex-shrink: 0; width: 22px; text-align: center; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-inner);
+            padding: 12px 14px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+        }
+        .sidebar-footer b { display: block; color: #fff; font-size: 0.84rem; margin-bottom: 2px; }
+
+        /* ÁREA DE CONTEÚDO */
+        .workspace {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .topbar {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(6px);
+            border: 1px solid var(--border);
+            border-left: 6px solid var(--primary);
+            border-radius: var(--radius-card);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .topbar h1 { font-size: 1.25rem; font-weight: 800; color: var(--text-main); text-transform: uppercase; letter-spacing: -0.3px; }
+        .topbar p { font-size: 0.84rem; color: var(--muted); font-weight: 500; }
+
+        .topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        .pill-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #dcfce7;
+            color: #15803d;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: var(--radius-pill);
+        }
+        .dot-online { width: 8px; height: 8px; background: #16a34a; border-radius: 50%; }
+
+        /* BOTÕES E INPUTS ARREDONDADOS */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border-radius: var(--radius-pill);
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .btn:hover { opacity: 0.92; transform: translateY(-1px); }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-warning { background: #f59e0b; color: #fff; }
+        .btn-danger { background: #fee2e2; color: var(--danger); border: 1px solid #fecaca; }
+        .btn-outline { background: #fff; color: var(--text-body); border: 1px solid var(--border); }
+        .btn-outline:hover { background: #f8fafc; }
+        .btn-sm { padding: 5px 11px; font-size: 0.76rem; }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-inner);
+            font-size: 0.9rem;
+            background: #fff;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+
+        label { display: block; font-size: 0.82rem; font-weight: 600; color: #475569; margin-bottom: 5px; }
+
+        /* CARDS & DASHBOARD */
+        .card {
+            background: rgba(255, 255, 255, 0.97);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-card);
+            padding: 22px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .kpi-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-card);
+            padding: 18px 20px;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-2px); }
+        .kpi-card.blue { border-top: 4px solid var(--primary); }
+        .kpi-card.amber { border-top: 4px solid var(--warning); }
+        .kpi-card.purple { border-top: 4px solid var(--purple); }
+        .kpi-card.green { border-top: 4px solid var(--success); }
+        .kpi-card.red { border-top: 4px solid var(--danger); }
+
+        .kpi-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+        .kpi-val { font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin: 6px 0 2px; }
+        .kpi-sub { font-size: 0.76rem; color: var(--muted); }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        /* TABELA MODERNA */
+        .table-wrap { overflow-x: auto; border-radius: var(--radius-inner); border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; background: #fff; text-align: left; }
+        th, td { padding: 12px 14px; font-size: 0.85rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        th { background: #f8fafc; font-weight: 700; color: #475569; font-size: 0.76rem; text-transform: uppercase; }
+        tr:last-child td { border-bottom: none; }
+        tr.row-done { background: #f0fdf4; }
+        tr.row-partial { background: #fefce8; }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+            font-size: 0.74rem;
+            font-weight: 700;
+        }
+        .badge-wait { background: #e0f2fe; color: #0369a1; }
+        .badge-quote { background: #f3e8ff; color: #6b21a8; }
+        .badge-af { background: #dbeafe; color: #1d4ed8; }
+        .badge-partial { background: #fef3c7; color: #b45309; }
+        .badge-done { background: #dcfce7; color: #15803d; }
+        .badge-cancel { background: #f1f5f9; color: #475569; }
+
+        /* BARRA DE PROGRESSO DE ENTREGA */
+        .progress-track {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: var(--radius-pill);
+            overflow: hidden;
+            margin-top: 6px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--success);
+            border-radius: var(--radius-pill);
+            transition: width 0.3s ease;
+        }
+
+        /* MÓDULOS INTEGRADOS (IFRAMES) */
+        .module-view { display: none; }
+        .module-view.active { display: block; }
+
+        .iframe-container {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-card);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            height: calc(100vh - 135px);
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(3px);
+            z-index: 1500;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: var(--radius-card);
+            padding: 24px 28px;
+            width: 100%;
+            max-width: 540px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 920px) {
+            .app-layout { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: static; }
+            .iframe-container { height: 80vh; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN ÚNICO -->
+<div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+        <div class="login-badge">SIA</div>
+        <h2>Sistema Integrado</h2>
+        <p>Almoxarifado da Saúde — Prefeitura de Avaré</p>
+        <form class="login-form" onsubmit="event.preventDefault(); realizarLoginPortal();">
+            <div>
+                <label>Usuário</label>
+                <input type="text" id="loginUser" placeholder="Digite seu usuário" required>
+            </div>
+            <div>
+                <label>Senha</label>
+                <input type="password" id="loginPass" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 6px;">Entrar no Portal</button>
+        </form>
+    </div>
+</div>
+
+<!-- PORTAL INTEGRADO -->
+<div id="appLayout" class="app-layout">
+    <!-- BARRA LATERAL EM ÁRVORE -->
+    <aside id="sidebar" class="sidebar">
+        <div class="brand-box">
+            <div class="brand-info">
+                <div class="brand-icon">SIA</div>
+                <div class="hide-collapsed">
+                    <b>Almoxarifado Saúde</b>
+                    <small>Prefeitura de Avaré • 2026</small>
+                </div>
+            </div>
+            <button type="button" class="btn-toggle-side" onclick="toggleSidebar()" title="Recolher/Expandir menu">☰</button>
+        </div>
+
+        <!-- GRUPO 1: EXECUÇÃO & CONTROLE -->
+        <div class="tree-group">
+            <button type="button" class="tree-header hide-collapsed" onclick="toggleTree('tree-execucao')">
+                <span>📁 Execução & Controle</span>
+                <span>▾</span>
+            </button>
+            <div id="tree-execucao" class="tree-items">
+                <button type="button" id="btn-mod-compras" class="nav-btn active" onclick="abrirModulo('compras')">
+                    <span class="nav-icon">🛒</span>
+                    <span class="hide-collapsed">Compras & Pedidos</span>
+                </button>
+                <button type="button" id="btn-mod-afs" class="nav-btn" onclick="abrirModulo('afs')">
+                    <span class="nav-icon">📦</span>
+                    <span class="hide-collapsed">Controle de AFs</span>
+                </button>
+                <button type="button" id="btn-mod-whatsapp" class="nav-btn" onclick="abrirModulo('whatsapp')">
+                    <span class="nav-icon">💬</span>
+                    <span class="hide-collapsed">Atendimento WhatsApp</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- GRUPO 2: EXPANSÃO FUTURA -->
+        <div class="tree-group">
+            <button type="button" class="tree-header hide-collapsed" onclick="toggleTree('tree-futuro')">
+                <span>📁 Setor & Relatórios</span>
+                <span>▾</span>
+            </button>
+            <div id="tree-futuro" class="tree-items">
+                <button type="button" id="btn-mod-integracao" class="nav-btn" onclick="abrirModulo('integracao')">
+                    <span class="nav-icon">🔗</span>
+                    <span class="hide-collapsed">Painel Consolidado</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="sidebar-footer hide-collapsed">
+            <b id="sideUserName">Usuário</b>
+            <span id="sideUserCargo">Almoxarifado da Saúde</span>
+        </div>
+    </aside>
+
+    <!-- ÁREA CENTRAL -->
+    <main class="workspace">
+        <!-- CABEÇALHO SUPERIOR -->
+        <header class="topbar">
+            <div>
+                <h1 id="topTitle">Controle de Compras & Pedidos</h1>
+                <p id="topSub">Gestão de solicitações, quantidades pedidas, entregas recebidas e saldos</p>
+            </div>
+            <div class="topbar-actions">
+                <span class="pill-status"><span class="dot-online"></span> <span id="topUserBadge">Online</span></span>
+                <button type="button" class="btn btn-outline btn-sm" onclick="abrirModulo('afs')">📦 Ir para AFs</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="sairPortal()">Sair</button>
+            </div>
+        </header>
+
+        <!-- MÓDULO 1: COMPRAS & PEDIDOS (CHEFIA) -->
+        <section id="view-compras" class="module-view active">
+            <!-- KPIs -->
+            <div class="kpi-grid">
+                <div class="kpi-card blue" onclick="filtrarStatusRapido('TODOS')">
+                    <div class="kpi-label">Total de Pedidos</div>
+                    <div class="kpi-val" id="kpiTotalPedidos">0</div>
+                    <div class="kpi-sub">Solicitações registradas</div>
+                </div>
+                <div class="kpi-card amber" onclick="filtrarStatusRapido('Aguardando AF')">
+                    <div class="kpi-label">Aguardando AF / Cotação</div>
+                    <div class="kpi-val" id="kpiAguardando">0</div>
+                    <div class="kpi-sub">Em andamento administrativo</div>
+                </div>
+                <div class="kpi-card purple" onclick="filtrarStatusRapido('Entrega Parcial')">
+                    <div class="kpi-label">Entregas Parciais</div>
+                    <div class="kpi-val" id="kpiParciais">0</div>
+                    <div class="kpi-sub">Com saldo a receber</div>
+                </div>
+                <div class="kpi-card green" onclick="filtrarStatusRapido('Concluído')">
+                    <div class="kpi-label">Pedidos Concluídos</div>
+                    <div class="kpi-val" id="kpiConcluidos">0</div>
+                    <div class="kpi-sub">100% entregues no setor</div>
+                </div>
+                <div class="kpi-card red">
+                    <div class="kpi-label">Itens Pendentes (Unid.)</div>
+                    <div class="kpi-val" id="kpiSaldoItens">0</div>
+                    <div class="kpi-sub">Soma de saldos a entregar</div>
+                </div>
+            </div>
+
+            <!-- FORMULÁRIO DE CADASTRO / EDIÇÃO DE COMPRA -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+                    <h3 id="formCompraTitulo" style="color: var(--text-main); font-size: 1.08rem;">➕ Registrar Nova Solicitação de Compra</h3>
+                    <div>
+                        <input type="file" id="inputPdfCompra" accept="application/pdf" style="display: none;" onchange="lerPdfCompraComIA(event)">
+                        <button type="button" id="btnPdfCompra" class="btn btn-outline btn-sm" style="border-color: #38bdf8; color: #0369a1; background: #f0f9ff;" onclick="document.getElementById('inputPdfCompra').click()">
+                            ✨ Importar Pedido PDF com IA
+                        </button>
+                    </div>
+                </div>
+
+                <form id="formCompra" onsubmit="salvarCompra(event)">
+                    <input type="hidden" id="editCompraId" value="">
+                    <div class="form-grid">
+                        <div>
+                            <label>Nº do Pedido / CI / Processo *</label>
+                            <input type="text" id="compNumPedido" required placeholder="Ex: PED 045/2026 ou CI 112">
+                        </div>
+                        <div>
+                            <label>Data do Pedido *</label>
+                            <input type="date" id="compDataPedido" required>
+                        </div>
+                        <div>
+                            <label>Setor Destino *</label>
+                            <select id="compSetor" required></select>
+                        </div>
+                        <div>
+                            <label>Solicitante / Responsável</label>
+                            <input type="text" id="compSolicitante" placeholder="Ex: Dra. Mariana / Coordenação">
+                        </div>
+                        <div>
+                            <label>Quantidade Pedida *</label>
+                            <input type="number" step="0.01" id="compQtdPedida" required placeholder="Ex: 500">
+                        </div>
+                        <div>
+                            <label>Unidade de Medida</label>
+                            <input type="text" id="compUnidade" value="UN" placeholder="UN, CX, FR, PCT...">
+                        </div>
+                        <div>
+                            <label>AF Vinculada (Opcional)</label>
+                            <input type="text" id="compAfVinculada" list="listaAfsExistentes" placeholder="Ex: AF 11919/26">
+                            <datalist id="listaAfsExistentes"></datalist>
+                        </div>
+                        <div>
+                            <label>Situação do Pedido</label>
+                            <select id="compStatus">
+                                <option value="Aguardando AF">Aguardando AF</option>
+                                <option value="Em Cotação">Em Cotação / Licitação</option>
+                                <option value="AF Emitida">AF Emitida (Aguardando Entrega)</option>
+                                <option value="Entrega Parcial">Entrega Parcial</option>
+                                <option value="Concluído">Concluído / Entregue</option>
+                                <option value="Cancelado">Cancelado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 14px;">
+                        <label>Descrição do Produto / Material Solicitado *</label>
+                        <textarea id="compItemDescricao" rows="2" required placeholder="Descreva o medicamento, insumo ou material solicitado..."></textarea>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label>Observações (Opcional)</label>
+                        <input type="text" id="compObservacoes" placeholder="Ex: Pedido de urgência para reposição de estoque...">
+                    </div>
+
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="submit" id="btnSalvarCompra" class="btn btn-primary">💾 Salvar Pedido de Compra</button>
+                        <button type="button" id="btnCancelarEdicaoCompra" class="btn btn-outline" style="display: none;" onclick="limparFormCompra()">Cancelar Edição</button>
+                        <button type="button" class="btn btn-success" style="margin-left: auto;" onclick="exportarComprasExcel()">📊 Exportar Excel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- FILTROS E TABELA DE COMPRAS -->
+            <div class="card">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                    <h3 style="font-size: 1.05rem;">📋 Acompanhamento de Pedidos</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1; justify-content: flex-end;">
+                        <select id="filtroCompraSetor" onchange="renderizarTabelaCompras()" style="width: auto; min-width: 160px;">
+                            <option value="TODOS">Todos os Setores</option>
+                        </select>
+                        <select id="filtroCompraStatus" onchange="renderizarTabelaCompras()" style="width: auto; min-width: 170px;">
+                            <option value="ATIVOS">Apenas Pendentes / Ativos</option>
+                            <option value="TODOS">Todos os Status</option>
+                            <option value="Aguardando AF">Aguardando AF</option>
+                            <option value="Em Cotação">Em Cotação</option>
+                            <option value="AF Emitida">AF Emitida</option>
+                            <option value="Entrega Parcial">Entrega Parcial</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                        <input type="text" id="buscaCompra" placeholder="🔎 Buscar pedido, item, AF..." oninput="renderizarTabelaCompras()" style="max-width: 260px;">
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pedido / Data</th>
+                                <th>Setor / Solicitante</th>
+                                <th>Item Solicitado</th>
+                                <th>Qtd. Pedida vs. Entregue</th>
+                                <th>AF Vinculada</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaComprasBody">
+                            <tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--muted);">Carregando pedidos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- MÓDULO 2: CONTROLE DE AFs INTEGRADO -->
+        <section id="view-afs" class="module-view">
+            <div class="iframe-container">
+                <iframe id="iframeAfs" src="index.html" title="Controle de AFs"></iframe>
+            </div>
+        </section>
+
+        <!-- MÓDULO 3: PAINEL DE ATENDIMENTO WHATSAPP INTEGRADO -->
+        <section id="view-whatsapp" class="module-view">
+            <div class="iframe-container">
+                <iframe id="iframeWhatsapp" src="https://almoxarifado.glsolucoesdigitais.com.br" title="Atendimento WhatsApp"></iframe>
+            </div>
+        </section>
+
+        <!-- MÓDULO 4: PAINEL CONSOLIDADO (INTEGRAÇÃO COMPRAS X AFs) -->
+        <section id="view-integracao" class="module-view">
+            <div class="card">
+                <h3 style="margin-bottom: 8px;">🔗 Cruzamento Automático: Pedidos da Chefia × AFs Emitidas</h3>
+                <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 16px;">
+                    Acompanhe aqui os pedidos que ainda não possuem AF vinculada e o status em tempo real das AFs já vinculadas.
+                </p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pedido</th>
+                                <th>Item Solicitado</th>
+                                <th>Qtd. Pendente</th>
+                                <th>AF Vinculada</th>
+                                <th>Situação no Controle de AFs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaCruzamentoBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- MODAL: REGISTRAR ENTREGA RECEBIDA NO PEDIDO -->
+<div id="modalEntregaCompra" class="modal">
+    <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h3 style="color: var(--success);">📦 Registrar Recebimento / Entrega</h3>
+            <button type="button" class="btn btn-outline btn-sm" onclick="fecharModalEntrega()">✕</button>
+        </div>
+        <p id="modalEntregaResumo" style="font-size: 0.85rem; color: var(--muted); margin-bottom: 14px;"></p>
+
+        <form onsubmit="event.preventDefault(); confirmarEntregaCompra();" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" id="entregaCompraId">
+            <div class="form-grid" style="margin-bottom: 0;">
+                <div>
+                    <label>Quantidade Entregue Agora *</label>
+                    <input type="number" step="0.01" id="entregaQtdAgora" required placeholder="Ex: 100">
+                </div>
+                <div>
+                    <label>Data do Recebimento *</label>
+                    <input type="date" id="entregaDataAgora" required>
+                </div>
+            </div>
+            <div>
+                <label>Nº Nota Fiscal / Documento (Opcional)</label>
+                <input type="text" id="entregaNfAgora" placeholder="Ex: NF 54321">
+            </div>
+
+            <div id="historicoEntregasModal" style="background: #f8fafc; padding: 10px 12px; border-radius: var(--radius-inner); border: 1px solid var(--border); font-size: 0.8rem; max-height: 150px; overflow-y: auto;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                <button type="button" class="btn btn-outline" onclick="fecharModalEntrega()">Cancelar</button>
+                <button type="submit" class="btn btn-success">✅ Confirmar Recebimento</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://adunochvwwfynngzsszg.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_wzosuw4QDpJfthg3pPpE3g_wv8GwNw6";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let usuarioLogado = JSON.parse(sessionStorage.getItem('user_session')) || null;
+    let comprasList = [];
+    let afsList = [];
+    let setoresList = [];
+    let geminiApiKey = '';
+
+    // 1. AUTENTICAÇÃO COMPARTILHADA COM O SISTEMA DE AFs
+    if (usuarioLogado) {
+        entrarNoPortal(usuarioLogado);
+    }
+
+    async function realizarLoginPortal() {
+        const userIn = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+        const passIn = (document.getElementById('loginPass').value || '').trim();
+
+        if (!userIn || !passIn) return;
+
+        if (userIn === 'admin' && (passIn === '123' || passIn === 'admin')) {
+            usuarioLogado = { nome: 'Gabriel Antunes', usuario: 'admin', cargo: 'Almoxarife' };
+            sessionStorage.setItem('user_session', JSON.stringify(usuarioLogado));
+            entrarNoPortal(usuarioLogado);
+            return;
+        }
+
+        try {
+            const { data } = await _supabase.from('usuarios').select('*');
+            const match = (data || []).find(u =>
+                String(u.usuario || '').trim().toLowerCase() === userIn &&
+                String(u.senha || '').trim() === passIn
+            );
+
+            if (match) {
+                usuarioLogado = match;
+                sessionStorage.setItem('user_session', JSON.stringify(usuarioLogado));
+                entrarNoPortal(usuarioLogado);
+            } else {
+                alert('❌ Usuário ou senha incorretos!');
+            }
+        } catch (err) {
+            alert('❌ Erro ao conectar com o Supabase: ' + err.message);
+        }
+    }
+
+    function entrarNoPortal(user) {
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('appLayout').style.display = 'flex';
+        document.getElementById('sideUserName').innerText = user.nome || 'Usuário';
+        document.getElementById('sideUserCargo').innerText = user.cargo || 'Almoxarifado Saúde';
+        document.getElementById('topUserBadge').innerText = user.nome || 'Online';
+        document.getElementById('compDataPedido').value = new Date().toISOString().split('T')[0];
+
+        inicializarDadosPortal();
+    }
+
+    function sairPortal() {
+        sessionStorage.removeItem('user_session');
+        location.reload();
+    }
+
+    // 2. NAVEGAÇÃO ENTRE MÓDULOS E ÁRVORE LATERAL
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('collapsed');
+    }
+
+    function toggleTree(id) {
+        document.getElementById(id).classList.toggle('closed');
+    }
+
+    function abrirModulo(modulo) {
+        document.querySelectorAll('.module-view').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+
+        const view = document.getElementById('view-' + modulo);
+        const btn = document.getElementById('btn-mod-' + modulo);
+        if (view) view.classList.add('active');
+        if (btn) btn.classList.add('active');
+
+        const titulos = {
+            compras: ['Controle de Compras & Pedidos', 'Gestão de solicitações, quantidades pedidas, entregas recebidas e saldos'],
+            afs: ['Controle Interno de AFs', 'Autorizações de Fornecimento, empenhos, cobranças e vigências'],
+            whatsapp: ['Central de Atendimento WhatsApp', 'Comunicação integrada por setores do Almoxarifado da Saúde'],
+            integracao: ['Painel Consolidado (Pedidos × AFs)', 'Cruzamento automático entre solicitações de compra e AFs emitidas']
+        };
+
+        if (titulos[modulo]) {
+            document.getElementById('topTitle').innerText = titulos[modulo][0];
+            document.getElementById('topSub').innerText = titulos[modulo][1];
+        }
+
+        if (modulo === 'integracao') {
+            renderizarCruzamento();
+        }
+    }
+
+    // 3. CARREGAMENTO DE DADOS DO SUPABASE
+    async function inicializarDadosPortal() {
+        // Busca chave da IA na tabela configuracoes
+        const { data: cfg } = await _supabase.from('configuracoes').select('gemini_api_key').eq('id', 1);
+        if (cfg && cfg.length > 0) geminiApiKey = (cfg[0].gemini_api_key || '').trim();
+
+        // Busca setores
+        const { data: sts } = await _supabase.from('setores').select('*');
+        setoresList = sts || [
+            { nome: 'Básica/Rede' },
+            { nome: 'Pronto-socorro' },
+            { nome: 'Mandado Judicial/Case' },
+            { nome: 'Enfermagem' }
+        ];
+        popularSelectSetores();
+
+        // Busca AFs para vincular e cruzar dados
+        const { data: afData } = await _supabase.from('afs').select('*');
+        afsList = afData || [];
+        popularDatalistAfs();
+
+        // Busca Pedidos de Compra
+        await carregarCompras();
+    }
+
+    function popularSelectSetores() {
+        const selForm = document.getElementById('compSetor');
+        const selFiltro = document.getElementById('filtroCompraSetor');
+        selForm.innerHTML = '';
+        selFiltro.innerHTML = '<option value="TODOS">Todos os Setores</option>';
+
+        setoresList.forEach(s => {
+            selForm.innerHTML += `<option value="${escapeHtml(s.nome)}">${escapeHtml(s.nome)}</option>`;
+            selFiltro.innerHTML += `<option value="${escapeHtml(s.nome)}">${escapeHtml(s.nome)}</option>`;
+        });
+    }
+
+    function popularDatalistAfs() {
+        const dl = document.getElementById('listaAfsExistentes');
+        dl.innerHTML = '';
+        afsList.forEach(af => {
+            const num = af.numaf || af.numAf;
+            if (num) {
+                dl.innerHTML += `<option value="${escapeHtml(num)}">${escapeHtml(af.fornecedor || '')}</option>`;
+            }
+        });
+    }
+
+    async function carregarCompras() {
+        const { data, error } = await _supabase
+            .from('compras_pedidos')
+            .select('*')
+            .order('data_pedido', { ascending: false });
+
+        if (error) {
+            console.error('Erro ao carregar compras:', error);
+            return;
+        }
+
+        comprasList = data || [];
+        atualizarKpisCompras();
+        renderizarTabelaCompras();
+        renderizarCruzamento();
+    }
+
+    // Atualização em tempo real
+    _supabase.channel('public:compras_pedidos')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'compras_pedidos' }, () => carregarCompras())
+        .subscribe();
+
+    // 4. KPIs E TABELA DE COMPRAS
+    function atualizarKpisCompras() {
+        const total = comprasList.length;
+        const aguardando = comprasList.filter(c => ['Aguardando AF', 'Em Cotação', 'AF Emitida'].includes(c.status)).length;
+        const parciais = comprasList.filter(c => c.status === 'Entrega Parcial').length;
+        const concluidos = comprasList.filter(c => c.status === 'Concluído').length;
+        const saldoUnidades = comprasList
+            .filter(c => c.status !== 'Concluído' && c.status !== 'Cancelado')
+            .reduce((acc, c) => acc + Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0)), 0);
+
+        document.getElementById('kpiTotalPedidos').innerText = total;
+        document.getElementById('kpiAguardando').innerText = aguardando;
+        document.getElementById('kpiParciais').innerText = parciais;
+        document.getElementById('kpiConcluidos').innerText = concluidos;
+        document.getElementById('kpiSaldoItens').innerText = saldoUnidades.toLocaleString('pt-BR');
+    }
+
+    function filtrarStatusRapido(status) {
+        document.getElementById('filtroCompraStatus').value = status;
+        renderizarTabelaCompras();
+    }
+
+    function badgeStatusHtml(status) {
+        const map = {
+            'Aguardando AF': 'badge-wait',
+            'Em Cotação': 'badge-quote',
+            'AF Emitida': 'badge-af',
+            'Entrega Parcial': 'badge-partial',
+            'Concluído': 'badge-done',
+            'Cancelado': 'badge-cancel'
+        };
+        return `<span class="badge ${map[status] || 'badge-wait'}">${escapeHtml(status || 'Aguardando AF')}</span>`;
+    }
+
+    function renderizarTabelaCompras() {
+        const tbody = document.getElementById('tabelaComprasBody');
+        const setorF = document.getElementById('filtroCompraSetor').value;
+        const statusF = document.getElementById('filtroCompraStatus').value;
+        const busca = (document.getElementById('buscaCompra').value || '').toLowerCase();
+
+        const filtrados = comprasList.filter(c => {
+            const matchSetor = setorF === 'TODOS' || c.setor === setorF;
+            const matchStatus = statusF === 'TODOS'
+                || (statusF === 'ATIVOS' && c.status !== 'Concluído' && c.status !== 'Cancelado')
+                || c.status === statusF;
+            const matchBusca =
+                (c.num_pedido || '').toLowerCase().includes(busca) ||
+                (c.item_descricao || '').toLowerCase().includes(busca) ||
+                (c.solicitante || '').toLowerCase().includes(busca) ||
+                (c.num_af_vinculada || '').toLowerCase().includes(busca);
+            return matchSetor && matchStatus && matchBusca;
+        });
+
+        if (filtrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--muted);">Nenhum pedido encontrado para este filtro.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtrados.map(c => {
+            const pedida = Number(c.qtd_pedida || 0);
+            const entregue = Number(c.qtd_entregue || 0);
+            const saldo = Math.max(0, pedida - entregue);
+            const pct = pedida > 0 ? Math.min(100, Math.round((entregue / pedida) * 100)) : 0;
+            const dataFmt = c.data_pedido ? c.data_pedido.split('-').reverse().join('/') : '-';
+            const rowClass = c.status === 'Concluído' ? 'row-done' : (c.status === 'Entrega Parcial' ? 'row-partial' : '');
+
+            return `
+                <tr class="${rowClass}">
+                    <td>
+                        <strong>${escapeHtml(c.num_pedido)}</strong><br>
+                        <small style="color: var(--muted);">📅 ${dataFmt}</small>
+                    </td>
+                    <td>
+                        <b>${escapeHtml(c.setor)}</b>
+                        ${c.solicitante ? `<br><small style="color: var(--muted);">👤 ${escapeHtml(c.solicitante)}</small>` : ''}
+                    </td>
+                    <td style="max-width: 300px;">
+                        <div style="font-weight: 600; color: var(--text-main);">${escapeHtml(c.item_descricao)}</div>
+                        ${c.observacoes ? `<small style="color: var(--muted);">Obs: ${escapeHtml(c.observacoes)}</small>` : ''}
+                    </td>
+                    <td style="min-width: 190px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                            <span>Pedido: <b>${pedida} ${escapeHtml(c.unidade || 'UN')}</b></span>
+                            <span style="color: var(--success);">Entregue: <b>${entregue}</b></span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill" style="width: ${pct}%;"></div>
+                        </div>
+                        <div style="font-size: 0.75rem; margin-top: 4px; color: ${saldo > 0 ? 'var(--danger)' : 'var(--success)'}; font-weight: 700;">
+                            ${saldo > 0 ? `Falta entregar: ${saldo} ${escapeHtml(c.unidade || 'UN')}` : '✅ Entrega total concluída'}
+                        </div>
+                    </td>
+                    <td>
+                        ${c.num_af_vinculada
+                            ? `<span class="badge badge-af">${escapeHtml(c.num_af_vinculada)}</span>`
+                            : `<small style="color: var(--muted);">Sem AF vinculada</small>`}
+                    </td>
+                    <td>${badgeStatusHtml(c.status)}</td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn btn-success btn-sm" onclick="abrirModalEntrega(${c.id})" title="Registrar recebimento">📦 Receber</button>
+                        <button type="button" class="btn btn-warning btn-sm" onclick="editarCompra(${c.id})" title="Editar pedido">✏️</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="excluirCompra(${c.id})" title="Excluir">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 5. SALVAR, EDITAR E EXCLUIR COMPRA
+    async function salvarCompra(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnSalvarCompra');
+        btn.disabled = true;
+        btn.innerText = 'Salvando...';
+
+        const editId = document.getElementById('editCompraId').value;
+        const qtdPedida = parseFloat(document.getElementById('compQtdPedida').value) || 0;
+
+        const payload = {
+            num_pedido: document.getElementById('compNumPedido').value.trim(),
+            data_pedido: document.getElementById('compDataPedido').value,
+            setor: document.getElementById('compSetor').value,
+            solicitante: document.getElementById('compSolicitante').value.trim() || null,
+            qtd_pedida: qtdPedida,
+            unidade: document.getElementById('compUnidade').value.trim().toUpperCase() || 'UN',
+            num_af_vinculada: document.getElementById('compAfVinculada').value.trim() || null,
+            status: document.getElementById('compStatus').value,
+            item_descricao: document.getElementById('compItemDescricao').value.trim(),
+            observacoes: document.getElementById('compObservacoes').value.trim() || null,
+            usuario_cadastro: usuarioLogado ? usuarioLogado.nome : 'Sistema'
+        };
+
+        let res;
+        if (editId) {
+            res = await _supabase.from('compras_pedidos').update(payload).eq('id', parseInt(editId));
+        } else {
+            payload.qtd_entregue = 0;
+            payload.entregas_historico = [];
+            res = await _supabase.from('compras_pedidos').insert([payload]);
+        }
+
+        btn.disabled = false;
+        btn.innerText = '💾 Salvar Pedido de Compra';
+
+        if (res.error) {
+            alert('❌ Erro ao salvar pedido: ' + res.error.message);
+        } else {
+            limparFormCompra();
+            await carregarCompras();
+        }
+    }
+
+    function editarCompra(id) {
+        const c = comprasList.find(item => item.id === id);
+        if (!c) return;
+
+        document.getElementById('editCompraId').value = c.id;
+        document.getElementById('compNumPedido').value = c.num_pedido || '';
+        document.getElementById('compDataPedido').value = c.data_pedido || '';
+        document.getElementById('compSetor').value = c.setor || '';
+        document.getElementById('compSolicitante').value = c.solicitante || '';
+        document.getElementById('compQtdPedida').value = c.qtd_pedida || 0;
+        document.getElementById('compUnidade').value = c.unidade || 'UN';
+        document.getElementById('compAfVinculada').value = c.num_af_vinculada || '';
+        document.getElementById('compStatus').value = c.status || 'Aguardando AF';
+        document.getElementById('compItemDescricao').value = c.item_descricao || '';
+        document.getElementById('compObservacoes').value = c.observacoes || '';
+
+        document.getElementById('formCompraTitulo').innerText = '✏️ Editar Solicitação de Compra';
+        document.getElementById('btnSalvarCompra').innerText = 'Atualizar Pedido';
+        document.getElementById('btnCancelarEdicaoCompra').style.display = 'inline-flex';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function limparFormCompra() {
+        document.getElementById('formCompra').reset();
+        document.getElementById('editCompraId').value = '';
+        document.getElementById('compDataPedido').value = new Date().toISOString().split('T')[0];
+        document.getElementById('compUnidade').value = 'UN';
+        document.getElementById('formCompraTitulo').innerText = '➕ Registrar Nova Solicitação de Compra';
+        document.getElementById('btnSalvarCompra').innerText = '💾 Salvar Pedido de Compra';
+        document.getElementById('btnCancelarEdicaoCompra').style.display = 'none';
+    }
+
+    async function excluirCompra(id) {
+        if (!confirm('Deseja realmente excluir este pedido de compra?')) return;
+        const { error } = await _supabase.from('compras_pedidos').delete().eq('id', id);
+        if (error) alert('Erro ao excluir: ' + error.message);
+        else await carregarCompras();
+    }
+
+    // 6. REGISTRO DE ENTREGAS / RECEBIMENTOS PARCIAIS
+    function abrirModalEntrega(id) {
+        const c = comprasList.find(item => item.id === id);
+        if (!c) return;
+
+        const saldo = Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0));
+        document.getElementById('entregaCompraId').value = c.id;
+        document.getElementById('entregaQtdAgora').value = saldo > 0 ? saldo : '';
+        document.getElementById('entregaDataAgora').value = new Date().toISOString().split('T')[0];
+        document.getElementById('entregaNfAgora').value = '';
+        document.getElementById('modalEntregaResumo').innerHTML =
+            `Pedido <b>${escapeHtml(c.num_pedido)}</b> • ${escapeHtml(c.item_descricao)}<br>` +
+            `Pedido: <b>${c.qtd_pedida} ${c.unidade}</b> | Já entregue: <b>${c.qtd_entregue}</b> | Saldo restante: <b style="color:var(--danger);">${saldo}</b>`;
+
+        const hist = c.entregas_historico || [];
+        const boxHist = document.getElementById('historicoEntregasModal');
+        if (hist.length === 0) {
+            boxHist.innerHTML = '<em>Nenhuma entrega registrada anteriormente para este pedido.</em>';
+        } else {
+            boxHist.innerHTML = '<strong>Histórico de Recebimentos:</strong><br>' + hist.map(h =>
+                `• ${h.data} — <b>+${h.qtd} ${c.unidade}</b> ${h.nf ? `(NF: ${escapeHtml(h.nf)})` : ''} <small>por ${escapeHtml(h.usuario || '-')}</small>`
+            ).join('<br>');
+        }
+
+        document.getElementById('modalEntregaCompra').style.display = 'flex';
+    }
+
+    function fecharModalEntrega() {
+        document.getElementById('modalEntregaCompra').style.display = 'none';
+    }
+
+    async function confirmarEntregaCompra() {
+        const id = parseInt(document.getElementById('entregaCompraId').value);
+        const qtdAgora = parseFloat(document.getElementById('entregaQtdAgora').value) || 0;
+        const dataAgora = document.getElementById('entregaDataAgora').value;
+        const nfAgora = document.getElementById('entregaNfAgora').value.trim();
+
+        const c = comprasList.find(item => item.id === id);
+        if (!c || qtdAgora <= 0) {
+            alert('Informe uma quantidade válida.');
+            return;
+        }
+
+        const novaQtdEntregue = Number(c.qtd_entregue || 0) + qtdAgora;
+        const historico = c.entregas_historico || [];
+        const parts = dataAgora.split('-');
+        historico.push({
+            data: `${parts[2]}/${parts[1]}/${parts[0]}`,
+            qtd: qtdAgora,
+            nf: nfAgora,
+            usuario: usuarioLogado ? usuarioLogado.nome : 'Almoxarifado'
+        });
+
+        const novoStatus = novaQtdEntregue >= Number(c.qtd_pedida || 0) ? 'Concluído' : 'Entrega Parcial';
+
+        const { error } = await _supabase
+            .from('compras_pedidos')
+            .update({
+                qtd_entregue: novaQtdEntregue,
+                entregas_historico: historico,
+                status: novoStatus
+            })
+            .eq('id', id);
+
+        if (error) {
+            alert('❌ Erro ao registrar entrega: ' + error.message);
+        } else {
+            fecharModalEntrega();
+            await carregarCompras();
+        }
+    }
+
+    // 7. PAINEL CONSOLIDADO (CRUZAMENTO COMPRAS X AFs)
+    function renderizarCruzamento() {
+        const tbody = document.getElementById('tabelaCruzamentoBody');
+        if (!tbody) return;
+
+        const pendentes = comprasList.filter(c => c.status !== 'Concluído' && c.status !== 'Cancelado');
+        if (pendentes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">Todos os pedidos estão concluídos!</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = pendentes.map(c => {
+            const saldo = Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0));
+            const afMatch = c.num_af_vinculada
+                ? afsList.find(a => (a.numaf || a.numAf || '').toLowerCase().includes(c.num_af_vinculada.toLowerCase()))
+                : null;
+
+            let statusAfHtml = '<span class="badge badge-wait">Aguardando emissão de AF</span>';
+            if (afMatch) {
+                statusAfHtml = `<span class="badge badge-done">${escapeHtml(afMatch.statussancao || 'Regular')} — Forn: ${escapeHtml(afMatch.fornecedor || '')}</span>`;
+            } else if (c.num_af_vinculada) {
+                statusAfHtml = `<span class="badge badge-partial">AF ${escapeHtml(c.num_af_vinculada)} não localizada na tabela AFs</span>`;
+            }
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(c.num_pedido)}</strong><br><small>${escapeHtml(c.setor)}</small></td>
+                    <td>${escapeHtml(c.item_descricao)}</td>
+                    <td style="font-weight:700; color:var(--danger);">${saldo} ${escapeHtml(c.unidade || 'UN')}</td>
+                    <td>${c.num_af_vinculada ? `<b>${escapeHtml(c.num_af_vinculada)}</b>` : '—'}</td>
+                    <td>${statusAfHtml}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 8. LEITOR DE PDF COM IA PARA PEDIDOS DE COMPRA
+    async function lerPdfCompraComIA(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!geminiApiKey) {
+            alert('⚠️ Chave da API Gemini não encontrada na tabela configuracoes do Supabase.');
+            return;
+        }
+
+        const btn = document.getElementById('btnPdfCompra');
+        const txtOriginal = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Lendo PDF...';
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let texto = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                texto += content.items.map(it => it.str).join(' ') + '\n';
+            }
+
+            const nomesSetores = setoresList.map(s => s.nome).join(', ');
+            const prompt = `
+Extraia os dados deste pedido de compra / requisição interna do Almoxarifado da Saúde e retorne APENAS JSON puro:
+{
+  "num_pedido": "número do pedido, requisição ou CI",
+  "data_pedido": "YYYY-MM-DD ou null",
+  "setor": "Escolha uma destas opções: [${nomesSetores}]",
+  "solicitante": "nome do solicitante se houver",
+  "qtd_pedida": 100,
+  "unidade": "UN ou CX",
+  "item_descricao": "resumo dos itens e quantidades solicitadas",
+  "observacoes": "observação relevante se houver"
+}
+Texto:
+${texto.substring(0, 12000)}`;
+
+            const modelos = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.0-flash"];
+            let resposta = null;
+
+            for (const modelo of modelos) {
+                const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${geminiApiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1 } })
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    resposta = data.candidates[0].content.parts[0].text.trim();
+                    break;
+                }
+            }
+
+            if (!resposta) throw new Error('Modelos ocupados no momento.');
+
+            const dados = JSON.parse(resposta.replace(/```json|```/gi, '').trim());
+            limparFormCompra();
+
+            if (dados.num_pedido) document.getElementById('compNumPedido').value = dados.num_pedido;
+            if (dados.data_pedido) document.getElementById('compDataPedido').value = dados.data_pedido;
+            if (dados.solicitante) document.getElementById('compSolicitante').value = dados.solicitante;
+            if (dados.qtd_pedida) document.getElementById('compQtdPedida').value = dados.qtd_pedida;
+            if (dados.unidade) document.getElementById('compUnidade').value = dados.unidade;
+            if (dados.item_descricao) document.getElementById('compItemDescricao').value = dados.item_descricao;
+            if (dados.observacoes) document.getElementById('compObservacoes').value = dados.observacoes;
+
+            if (dados.setor) {
+                const sel = document.getElementById('compSetor');
+                const opt = Array.from(sel.options).find(o => o.value.toLowerCase() === dados.setor.toLowerCase());
+                if (opt) sel.value = opt.value;
+            }
+
+            alert('✅ Dados do pedido extraídos com sucesso! Confira e clique em Salvar.');
+        } catch (err) {
+            alert('❌ Erro ao ler PDF: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = txtOriginal;
+            event.target.value = '';
+        }
+    }
+
+    function exportarComprasExcel() {
+        if (comprasList.length === 0) return;
+        const rows = comprasList.map(c => ({
+            'Pedido': c.num_pedido,
+            'Data': c.data_pedido,
+            'Setor': c.setor,
+            'Solicitante': c.solicitante || '',
+            'Item': c.item_descricao,
+            'Unidade': c.unidade,
+            'Qtd Pedida': c.qtd_pedida,
+            'Qtd Entregue': c.qtd_entregue,
+            'Saldo Restante': Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0)),
+            'AF Vinculada': c.num_af_vinculada || '',
+            'Status': c.status
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Compras_Pedidos');
+        XLSX.writeFile(wb, 'Controle_Compras_Saude_Avare.xlsx');
+    }
+
+    function escapeHtml(str) {
+        return String(str ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+    }
+</script>
+</body>
+</html>
