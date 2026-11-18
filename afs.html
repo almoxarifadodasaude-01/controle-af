@@ -1053,6 +1053,16 @@ async function ativarSessaoAFs(session) {
         fecharTelaLogin(usuarioLogado.nome);
         await initApp();
         afsJaInicializado = true;
+        function fecharTelaLogin(nomeUsuario) {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) overlay.style.display = 'none';
+
+    const header = document.getElementById('mainHeader');
+    if (header) header.style.display = 'flex';
+
+    const userLabel = document.getElementById('loggedUserName');
+    if (userLabel) userLabel.innerText = nomeUsuario || 'Usuário';
+}
     } catch (error) {
         console.error('Erro ao ativar sessão AFs:', error);
         alert(error.message || 'Não foi possível validar sua sessão.');
