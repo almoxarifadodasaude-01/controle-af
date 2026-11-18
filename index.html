@@ -405,7 +405,7 @@
                 <span class="motivational-title">💡 Inspiração do Dia</span>
                 <button type="button" class="btn btn-outline btn-mini" onclick="sortearFraseMotivacional(true)" title="Gerar nova frase com IA">🔄 Nova frase</button>
             </div>
-            <p id="fraseTexto" class="motivational-quote"></p>
+            <p id="fraseTexto" class="motivational-quote">✨ Aguardando carregamento...</p>
             <div id="fraseAutor" class="motivational-author"></div>
         </div>
     </div>
@@ -964,7 +964,8 @@
         cnpj_prefeitura: '46.634.168/0001-50',
         departamento: 'SECRETARIA MUNICIPAL DA SAÚDE — ALMOXARIFADO DA SAÚDE',
         prazo_padrao_dias: 15,
-        horas_ocultar_entregue: 24
+        horas_ocultar_entregue: 24,
+        gemini_api_key: ''
     };
 
     let usuarioLogado = JSON.parse(sessionStorage.getItem('user_session')) || null;
@@ -987,6 +988,15 @@
 
         if (!userIn || !passIn) {
             alert("Preencha usuário e senha.");
+            return;
+        }
+
+        // 1. Bypass Admin
+        if (userIn === 'admin' && (passIn === '123' || passIn === 'admin')) {
+            usuarioLogado = { nome: 'Gabriel Antunes', usuario: 'admin', cargo: 'Almoxarife' };
+            sessionStorage.setItem('user_session', JSON.stringify(usuarioLogado));
+            fecharTelaLogin(usuarioLogado.nome);
+            initApp();
             return;
         }
 
@@ -1024,32 +1034,26 @@
     }
 
     async function initApp() {
-        try { await fetchConfig(); } catch(e) { console.error("Erro config:", e); }
-        async function initApp() {
         try { 
             await fetchConfig(); 
-            sortearFraseMotivacional(false); // <-- Roda só depois que a chave do Supabase chegou!
+            sortearFraseMotivacional(false);
         } catch(e) { console.error("Erro config:", e); }
         try { await fetchSetores(); } catch(e) { console.error("Erro setores:", e); }
         try { await fetchFornecedores(); } catch(e) { console.error("Erro fornecedores:", e); }
         try { await fetchAfs(); } catch(e) { console.error("Erro AFs:", e); }
     }
-        try { await fetchSetores(); } catch(e) { console.error("Erro setores:", e); }
-        try { await fetchFornecedores(); } catch(e) { console.error("Erro fornecedores:", e); }
-        try { await fetchAfs(); } catch(e) { console.error("Erro AFs:", e); }
-    }
 
-   async function fetchConfig() {
-    const { data } = await _supabase.from('configuracoes').select('*').eq('id', 1);
-    if (data && data.length > 0) {
-        configSys = data[0];
+    async function fetchConfig() {
+        const { data } = await _supabase.from('configuracoes').select('*').eq('id', 1);
+        if (data && data.length > 0) {
+            configSys = data[0];
+        }
+        document.getElementById('cfgPrefeitura').value = configSys.nome_prefeitura || '';
+        document.getElementById('cfgCnpj').value = configSys.cnpj_prefeitura || '';
+        document.getElementById('cfgDepto').value = configSys.departamento || '';
+        document.getElementById('cfgPrazoPadrao').value = configSys.prazo_padrao_dias || 15;
+        document.getElementById('cfgHorasOcultar').value = configSys.horas_ocultar_entregue || 24;
     }
-    document.getElementById('cfgPrefeitura').value = configSys.nome_prefeitura || '';
-    document.getElementById('cfgCnpj').value = configSys.cnpj_prefeitura || '';
-    document.getElementById('cfgDepto').value = configSys.departamento || '';
-    document.getElementById('cfgPrazoPadrao').value = configSys.prazo_padrao_dias || 15;
-    document.getElementById('cfgHorasOcultar').value = configSys.horas_ocultar_entregue || 24;
-}
 
     function openModalConfig() { document.getElementById('modalConfig').style.display = 'flex'; }
     function closeModalConfig() { document.getElementById('modalConfig').style.display = 'none'; }
@@ -2164,60 +2168,49 @@
 
     window.addEventListener('load', () => { if (afs.length) updateV2Dashboard(); });
 
-   async function chamarGeminiIA(prompt, temperatura = 0.2) {
-    const apiKey = (configSys.gemini_api_key || '').trim();
+    /* ====== MOTOR CENTRAL DA IA (GEMINI COM FALLBACK) ====== */
+    async function chamarGeminiIA(prompt, temperatura = 0.2) {
+        const apiKey = (configSys.gemini_api_key || '').trim();
 
-    if (!apiKey) {
-        throw new Error("Chave da IA não encontrada na tabela 'configuracoes' do Supabase.");
-    }
-
-   async function chamarGeminiIA(prompt, temperatura = 0.2) {
-    const apiKey = (configSys.gemini_api_key || '').trim();
-
-    if (!apiKey) {
-        throw new Error("Chave da IA não encontrada na tabela 'configuracoes' do Supabase.");
-    }
-
-    const modelos = [
-        "gemini-3.8-flash",
-        "gemini-flash-latest",
-        "gemini-2.5-flash-lite"
-    ];
-
-    let ultimoErro = "";
-
-    for (const modelo of modelos) {
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: temperatura }
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                return data.candidates[0].content.parts[0].text.trim();
-            }
-
-            const errData = await response.json().catch(() => ({}));
-            ultimoErro = errData?.error?.message || `Erro HTTP ${response.status}`;
-            console.warn(`Modelo ${modelo} falhou (${ultimoErro}). Tentando próximo...`);
-        } catch (e) {
-            ultimoErro = e.message;
-            console.warn(`Falha de rede no modelo ${modelo}:`, e.message);
+        if (!apiKey) {
+            throw new Error("Chave da IA não encontrada na tabela 'configuracoes' do Supabase.");
         }
-    }
 
-    throw new Error(`Todos os modelos estão ocupados no momento. Detalhe: ${ultimoErro}`);
-}
-    }
+        const modelos = [
+            "gemini-3.8-flash",
+            "gemini-flash-latest",
+            "gemini-2.5-flash-lite"
+        ];
 
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text.trim();
-}
+        let ultimoErro = "";
+
+        for (const modelo of modelos) {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: temperatura }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.candidates[0].content.parts[0].text.trim();
+                }
+
+                const errData = await response.json().catch(() => ({}));
+                ultimoErro = errData?.error?.message || `Erro HTTP ${response.status}`;
+                console.warn(`Modelo ${modelo} falhou (${ultimoErro}). Tentando próximo...`);
+            } catch (e) {
+                ultimoErro = e.message;
+                console.warn(`Falha de rede no modelo ${modelo}:`, e.message);
+            }
+        }
+
+        throw new Error(`Todos os modelos estão ocupados no momento. Detalhe: ${ultimoErro}`);
+    }
 
     /* ====== 1. LEITOR INTELIGENTE DE PDF DE AF / EMPENHO ====== */
     async function extrairTextoDoPDF(file) {
@@ -2262,16 +2255,16 @@ Analise o texto extraído do PDF de uma Autorização de Fornecimento (AF) ou No
   "numempenho": "número do empenho (ex: 00402/26). Se não achar, deixe vazio",
   "fornecedor": "Razão social completa do fornecedor",
   "setor": "Escolha OBRIGATORIAMENTE uma destas opções exatas com base nos itens/destinação: [${nomesSetores}]",
-  "valortotal": 1.250,50,
-  "vigenciaata": "DD-MM-YYYY se houver data de vigência da ata/contrato, senão null",
-  "prazoentrega": "DD-MM-YYYY se houver data limite de entrega explícita, senão null",
+  "valortotal": 1250.50,
+  "vigenciaata": "YYYY-MM-DD se houver data de vigência da ata/contrato, senão null",
+  "prazoentrega": "YYYY-MM-DD se houver data limite de entrega explícita, senão null",
   "produtos": "Lista resumida e organizada dos itens, quantidades e valores unitários (ex: 500 UN - Dipirona Sódica 500mg (R$ 0,15/un); 200 CX - Luva Procedimento M (R$ 22,00/cx))",
   "observacoes": "Prazo em dias mencionado no documento, nº do pregão/ata ou observação relevante"
 }
 
 Regras:
-- "valortotal" deve ser número decimal com virgula e ponto (ex: 1.540,90), nunca string com R$.
-- Datas devem estar estritamente no formato DD-MM-YYYY ou null.
+- "valortotal" deve ser número decimal com ponto (ex: 1540.90), nunca string com R$.
+- Datas devem estar estritamente no formato YYYY-MM-DD ou null.
 
 Texto do PDF:
 ${textoPdf.substring(0, 15000)}
@@ -2383,7 +2376,6 @@ ${textoPdf.substring(0, 15000)}
             elAutor.innerText = `— ${reserva.autor}`;
         }
     }
-
 </script>
 </body>
 </html>
