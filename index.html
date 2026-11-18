@@ -385,25 +385,6 @@
     </div>
 </div>
 
-<!-- Funcionalidade 2: Briefing Matinal de Gargalos com IA -->
-<div id="iaBriefingCard" class="card no-print" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%) !important; border-left: 6px solid #7c3aed; margin-bottom: 18px; padding: 16px 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 1.2rem;">🤖</span>
-            <div>
-                <strong style="color: #1e293b; font-size: 0.98rem; display: block;">Briefing Inteligente do Dia (Análise de Gargalos)</strong>
-                <span id="iaBriefingSub" style="font-size: 0.75rem; color: #64748b;">Diagnóstico automático das AFs em aberto no almoxarifado</span>
-            </div>
-        </div>
-        <button type="button" id="btnAtualizarBriefing" class="btn btn-outline btn-mini" onclick="gerarBriefingGargalosIA(true)" style="background: #fff; font-weight: 700; padding: 5px 10px;">
-            🔄 Atualizar Briefing
-        </button>
-    </div>
-    <div id="iaBriefingConteudo" style="font-size: 0.88rem; color: #334155; line-height: 1.65;">
-        ⏳ Carregando dados das AFs para gerar o diagnóstico...
-    </div>
-</div>
-    
 <div class="home-grid no-print">
     <!-- Coluna Esquerda: Briefing Matinal de Gargalos com IA -->
     <div class="panel" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%) !important; border-left: 5px solid #7c3aed;">
@@ -1636,16 +1617,7 @@
         }
         afs = data || [];
         saveAndRenderLocal();
-        async function fetchAfs() {
-        const { data, error } = await _supabase.from('afs').select('*');
-        if (error) {
-            console.error("Erro ao carregar AFs:", error);
-            return;
-        }
-        afs = data || [];
-        saveAndRenderLocal();
-        gerarBriefingGargalosIA(false); // <-- Gera o briefing após carregar as AFs
-    }
+        gerarBriefingGargalosIA(false);
     }
 
     _supabase.channel('public:afs').on('postgres_changes', { event: '*', schema: 'public', table: 'afs' }, () => fetchAfs()).subscribe();
@@ -2251,12 +2223,10 @@
                     const errData = await response.json().catch(() => ({}));
                     ultimoErro = errData?.error?.message || `Erro HTTP ${response.status}`;
 
-                    // Se o modelo foi descontinuado (404/400), pula direto para o próximo modelo
                     if (ultimoErro.includes("no longer available") || response.status === 404) {
                         break;
                     }
 
-                    // Se for pico de demanda temporário (503/429), aguarda 1.5s e tenta mais uma vez
                     await new Promise(resolve => setTimeout(resolve, 1500));
                 } catch (e) {
                     ultimoErro = e.message;
@@ -2431,14 +2401,14 @@ ${textoPdf.substring(0, 15000)}
             elAutor.innerText = `— ${reserva.autor}`;
         }
     }
-/* ====== 2. BRIEFING MATINAL DE GARGALOS E ALERTAS COM IA ====== */
+
+    /* ====== 2. BRIEFING MATINAL DE GARGALOS E ALERTAS COM IA ====== */
     async function gerarBriefingGargalosIA(forcarAtualizacao = false) {
         const box = document.getElementById('iaBriefingConteudo');
         const sub = document.getElementById('iaBriefingSub');
         const btn = document.getElementById('btnAtualizarBriefing');
         if (!box) return;
 
-        // Filtra apenas AFs abertas (não entregues e não canceladas)
         const afsAbertas = afs.filter(af => !isClosed(af));
 
         if (afsAbertas.length === 0) {
@@ -2450,7 +2420,6 @@ ${textoPdf.substring(0, 15000)}
         const cacheKey = 'af_briefing_ia_cache';
         const cacheSalvo = JSON.parse(localStorage.getItem(cacheKey) || 'null');
 
-        // Usa cache do dia se não forçou atualização e a quantidade de AFs abertas não mudou
         if (!forcarAtualizacao && cacheSalvo && cacheSalvo.data === hojeStr && cacheSalvo.totalAbertas === afsAbertas.length) {
             box.innerHTML = cacheSalvo.html;
             if (sub && cacheSalvo.hora) sub.innerText = `Atualizado hoje às ${cacheSalvo.hora} • ${afsAbertas.length} AF(s) ativa(s) analisada(s)`;
@@ -2464,7 +2433,6 @@ ${textoPdf.substring(0, 15000)}
         box.innerHTML = '✨ <em>A IA está analisando prazos, cobranças e saldos pendentes para montar as prioridades de hoje...</em>';
 
         try {
-            // Monta um resumo compacto apenas das AFs mais críticas (até 25) para resposta rápida
             const resumoAfs = afsAbertas
                 .map(af => {
                     const diasPrazo = daysFromToday(af.prazoentrega || af.prazoEntrega);
@@ -2475,7 +2443,7 @@ ${textoPdf.substring(0, 15000)}
                         fornecedor: af.fornecedor,
                         status: afStatus(af),
                         saldo_pendente: afPending(af).toFixed(2),
-                        dias_para_prazo: diasPrazo, // negativo = atrasado
+                        dias_para_prazo: diasPrazo,
                         dias_para_vigencia: diasVigencia,
                         qtd_cobrancas: (af.cobrancas || []).length
                     };
@@ -2488,7 +2456,7 @@ Você é o Coordenador de Logística do Almoxarifado da Saúde da Prefeitura de 
 Analise os dados abaixo das Autorizações de Fornecimento (AFs) em aberto hoje (${new Date().toLocaleDateString('pt-BR')}) e escreva um **Briefing Matinal de Prioridades** direto e objetivo.
 
 Regras de formatação:
-- Retorne APENAS HTML limpo usando uma lista <ul> com 3 a 4 itens <li> (sem blocos \`\`\`html, sem título repetido).
+- Retorne APENAS HTML limpo usando uma lista <ul style="padding-left: 18px; display: flex; flex-direction: column; gap: 6px;"> com 3 a 4 itens <li> (sem blocos \`\`\`html, sem título repetido).
 - Use emojis no início de cada item (🔴 para atrasos críticos/sanções, 🟡 para vencimentos hoje ou próximos 3 dias, 📦 para entregas parciais paradas ou atas vencendo, 💡 para recomendação prática de ação).
 - Cite números reais de AF, nomes dos fornecedores e valores quando relevante.
 - Seja conciso: máximo de 2 linhas por item.
@@ -2513,7 +2481,6 @@ ${JSON.stringify(resumoAfs)}
 
         } catch (erro) {
             console.warn('Falha ao gerar briefing IA:', erro.message);
-            // Fallback local inteligente caso a API oscile
             const atrasadas = afsAbertas.filter(a => (daysFromToday(a.prazoentrega || a.prazoEntrega) ?? 1) < 0);
             const vencemHoje = afsAbertas.filter(a => daysFromToday(a.prazoentrega || a.prazoEntrega) === 0);
             box.innerHTML = `
@@ -2526,7 +2493,7 @@ ${JSON.stringify(resumoAfs)}
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerText = '🔄 Atualizar Briefing';
+                btn.innerText = '🔄 Atualizar';
             }
         }
     }    
