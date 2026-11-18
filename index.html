@@ -1033,7 +1033,7 @@
         location.reload();
     }
 
-    tion initApp() {
+    async function initApp() {
         try { 
             await fetchConfig(); 
             sortearFraseMotivacional(false);
@@ -2169,83 +2169,55 @@
     window.addEventListener('load', () => { if (afs.length) updateV2Dashboard(); });
 
     /* ====== MOTOR CENTRAL DA IA (GEMINI COM FALLBACK) ====== */
-   async function chamarGeminiIA(prompt, temperatura = 0.2) {
-    const apiKey = (configSys.gemini_api_key || '').trim();
+    async function chamarGeminiIA(prompt, temperatura = 0.2) {
+        const apiKey = (configSys.gemini_api_key || '').trim();
 
-    if (!apiKey) {
-        throw new Error("Chave da IA não encontrada na tabela 'configuracoes' do Supabase.");
-    }
-
-    const modelos = [
-        "gemini-3.8-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.0-flash"
-    ];
-
-    let ultimoErro = "";
-
-    for (const modelo of modelos) {
-        for (let tentativa = 1; tentativa <= 2; tentativa++) {
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: temperatura }
-                    })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    return data.candidates[0].content.parts[0].text.trim();
-                }
-
-                const errData = await response.json().catch(() => ({}));
-                ultimoErro = errData?.error?.message || `Erro HTTP ${response.status}`;
-
-                // Se o modelo foi descontinuado (404/400), pula direto para o próximo modelo
-                if (ultimoErro.includes("no longer available") || response.status === 404) {
-                    break;
-                }
-
-                // Se for pico de demanda temporário (503/429), aguarda 1.5s e tenta mais uma vez
-                await new Promise(resolve => setTimeout(resolve, 1500));
-            } catch (e) {
-                ultimoErro = e.message;
-            }
+        if (!apiKey) {
+            throw new Error("Chave da IA não encontrada na tabela 'configuracoes' do Supabase.");
         }
-    }
 
-    throw new Error(`Não foi possível obter resposta da IA agora. Detalhe: ${ultimoErro}`);
-}
+        const modelos = [
+            "gemini-3.8-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.0-flash"
+        ];
+
+        let ultimoErro = "";
 
         for (const modelo of modelos) {
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: temperatura }
-                    })
-                });
+            for (let tentativa = 1; tentativa <= 2; tentativa++) {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            generationConfig: { temperature: temperatura }
+                        })
+                    });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    return data.candidates[0].content.parts[0].text.trim();
+                    if (response.ok) {
+                        const data = await response.json();
+                        return data.candidates[0].content.parts[0].text.trim();
+                    }
+
+                    const errData = await response.json().catch(() => ({}));
+                    ultimoErro = errData?.error?.message || `Erro HTTP ${response.status}`;
+
+                    // Se o modelo foi descontinuado (404/400), pula direto para o próximo modelo
+                    if (ultimoErro.includes("no longer available") || response.status === 404) {
+                        break;
+                    }
+
+                    // Se for pico de demanda temporário (503/429), aguarda 1.5s e tenta mais uma vez
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                } catch (e) {
+                    ultimoErro = e.message;
                 }
-
-                const errData = await response.json().catch(() => ({}));
-                ultimoErro = errData?.error?.message || `Erro HTTP ${response.status}`;
-                console.warn(`Modelo ${modelo} falhou (${ultimoErro}). Tentando próximo...`);
-            } catch (e) {
-                ultimoErro = e.message;
-                console.warn(`Falha de rede no modelo ${modelo}:`, e.message);
             }
         }
 
-        throw new Error(`Todos os modelos estão ocupados no momento. Detalhe: ${ultimoErro}`);
+        throw new Error(`Não foi possível obter resposta da IA agora. Detalhe: ${ultimoErro}`);
     }
 
     /* ====== 1. LEITOR INTELIGENTE DE PDF DE AF / EMPENHO ====== */
