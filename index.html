@@ -899,21 +899,55 @@
 </div>
 
 <div id="modalCobranca" class="modal">
-    <div class="modal-content">
-        <h3>📞 Registrar / Editar Cobrança</h3>
-        <br>
+    <div class="modal-content" style="max-width: 580px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3>📞 Registrar & Gerar Cobrança</h3>
+            <button type="button" class="btn btn-outline btn-mini" onclick="closeModalCobranca()">✕</button>
+        </div>
+
         <input type="hidden" id="cobrancaAfId">
-        <div style="margin-bottom: 10px;">
-            <label>Data da Cobrança</label>
-            <input type="date" id="cobrancaData" required>
+
+        <!-- Bloco Gerador de Mensagem com IA -->
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                <strong style="font-size: 0.85rem; color: #0369a1;">✨ Mensagem Formal de Cobrança (IA)</strong>
+                <div style="display: flex; gap: 6px;">
+                    <select id="cobrancaTom" style="width: auto; padding: 4px 8px; font-size: 0.78rem;">
+                        <option value="amigavel">1º Aviso (Cordial)</option>
+                        <option value="firme">2º Aviso (Firme / Urgente)</option>
+                        <option value="notificacao">Último Aviso (Pré-Notificação/Sanção)</option>
+                    </select>
+                    <button type="button" id="btnGerarTextoCobranca" class="btn btn-mini" style="background: #0284c7; padding: 5px 10px; font-size: 0.78rem;" onclick="gerarMensagemCobrancaIA()">
+                        ✨ Gerar Texto
+                    </button>
+                </div>
+            </div>
+
+            <textarea id="textoCobrancaGerado" rows="6" placeholder="Clique em '✨ Gerar Texto' para a IA redigir a cobrança oficial com os dados desta AF, itens e dias de atraso..." style="font-size: 0.83rem; background: #fff; margin-bottom: 8px;"></textarea>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline btn-mini" onclick="copiarTextoCobranca()">📋 Copiar Texto</button>
+                <button type="button" class="btn btn-success btn-mini" onclick="enviarCobrancaWhatsApp()">💬 Abrir no WhatsApp</button>
+                <button type="button" class="btn btn-mini" style="background: #334155;" onclick="enviarCobrancaEmail()">✉️ Abrir E-mail</button>
+            </div>
         </div>
-        <div style="margin-bottom: 15px;">
-            <label>Observação do Contato (Opcional)</label>
-            <input type="text" id="cobrancaObs" placeholder="Ex: Falei com fornecedor">
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 14px 0;">
+
+        <div class="form-grid" style="margin-bottom: 10px;">
+            <div>
+                <label>Data do Registro no Sistema</label>
+                <input type="date" id="cobrancaData" required>
+            </div>
+            <div>
+                <label>Resumo para o Histórico da Tabela</label>
+                <input type="text" id="cobrancaObs" placeholder="Ex: Cobrado via WhatsApp / E-mail">
+            </div>
         </div>
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px;">
             <button type="button" class="btn-outline" onclick="closeModalCobranca()">Cancelar</button>
-            <button type="button" class="btn-success" onclick="saveCobranca()">Salvar Cobrança</button>
+            <button type="button" class="btn-success" onclick="saveCobranca()">💾 Salvar Cobrança no Histórico</button>
         </div>
     </div>
 </div>
@@ -2494,9 +2528,146 @@ ${JSON.stringify(resumoAfs)}
             if (btn) {
                 btn.disabled = false;
                 btn.innerText = '🔄 Atualizar';
-            }
+                
+    /* ====== 3. GERADOR DE COBRANÇA FORMAL PARA FORNECEDORES ====== */
+    // Atualiza o openModalCobranca para já sugerir o tom ideal e limpar o texto anterior
+    const _openModalCobrancaOriginal = openModalCobranca;
+    openModalCobranca = function(id) {
+        _openModalCobrancaOriginal(id);
+        const af = afs.find(item => item.id === id);
+        const txtArea = document.getElementById('textoCobrancaGerado');
+        const selectTom = document.getElementById('cobrancaTom');
+        if (txtArea) txtArea.value = '';
+        if (af && selectTom) {
+            const qtd = (af.cobrancas || []).length;
+            if (qtd === 0) selectTom.value = 'amigavel';
+            else if (qtd === 1) selectTom.value = 'firme';
+            else selectTom.value = 'notificacao';
         }
-    }    
+    };
+
+    async function gerarMensagemCobrancaIA() {
+        const id = parseInt(document.getElementById('cobrancaAfId').value);
+        const af = afs.find(item => item.id === id);
+        if (!af) return;
+
+        const btn = document.getElementById('btnGerarTextoCobranca');
+        const txtArea = document.getElementById('textoCobrancaGerado');
+        const tom = document.getElementById('cobrancaTom').value;
+
+        btn.disabled = true;
+        btn.innerText = '⏳ Redigindo...';
+        txtArea.value = '✨ A IA está redigindo a mensagem oficial com os dados da AF...';
+
+        try {
+            const diasPrazo = daysFromToday(af.prazoentrega || af.prazoEntrega);
+            const situacaoPrazo = diasPrazo === null
+                ? 'prazo não informado'
+                : (diasPrazo < 0 ? `em atraso há ${Math.abs(diasPrazo)} dia(s)` : (diasPrazo === 0 ? 'vence hoje' : `vence em ${diasPrazo} dia(s)`));
+
+            const saldo = afPending(af).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const qtdCob = (af.cobrancas || []).length;
+
+            const instrucaoTom = {
+                amigavel: 'Tom cordial e colaborativo de 1º lembrete, solicitando previsão de entrega ou código de rastreio.',
+                firme: 'Tom formal, firme e urgente de 2ª cobrança, ressaltando o impacto no abastecimento da rede pública de saúde.',
+                notificacao: 'Tom administrativo rigoroso de último aviso antes de abertura de processo de notificação formal e sanções contratuais previstas na Lei de Licitações.'
+            }[tom];
+
+            const promptCobranca = `
+Você é um servidor do Almoxarifado da Saúde da Prefeitura da Estância Turística de Avaré.
+Redija uma mensagem oficial de cobrança de entrega para enviar ao fornecedor abaixo.
+
+Dados da Autorização de Fornecimento:
+- Fornecedor: ${af.fornecedor}
+- Nº AF / Processo: ${af.numaf || af.numAf}
+- Nº Empenho: ${af.numempenho || af.numEmpenho || 'Não informado'}
+- Setor Solicitante: ${af.setor || 'Saúde'}
+- Prazo de Entrega: ${formatDate(af.prazoentrega || af.prazoEntrega)} (${situacaoPrazo})
+- Saldo Pendente a Entregar: ${saldo}
+- Itens/Produtos: ${af.produtos || 'Conforme descrito na AF'}
+- Cobranças anteriores já registradas: ${qtdCob}
+
+Diretriz de tom: ${instrucaoTom}
+
+Regras:
+- Escreva o texto pronto para enviar por WhatsApp ou E-mail (com saudação, identificação clara da Prefeitura de Avaré - Almoxarifado da Saúde, dados da AF/Empenho e pedido objetivo de retorno imediato).
+- Não use placeholders entre colchetes como [Seu Nome]; assine como "Equipe do Almoxarifado da Saúde — Prefeitura da Estância Turística de Avaré".
+- Retorne APENAS o texto da mensagem, sem explicações extras.
+`;
+
+            const mensagem = await chamarGeminiIA(promptCobranca, 0.35);
+            txtArea.value = mensagem;
+
+            // Preenche automaticamente o resumo curto no campo de histórico se estiver vazio
+            const campoObs = document.getElementById('cobrancaObs');
+            if (campoObs && !campoObs.value.trim()) {
+                campoObs.value = `Cobrança formal enviada (${qtdCob + 1}º contato)`;
+            }
+        } catch (erro) {
+            txtArea.value = '';
+            alert('❌ Erro ao gerar texto de cobrança: ' + erro.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '✨ Gerar Texto';
+        }
+    }
+
+    function copiarTextoCobranca() {
+        const texto = document.getElementById('textoCobrancaGerado').value.trim();
+        if (!texto) {
+            alert('Gere ou escreva uma mensagem primeiro.');
+            return;
+        }
+        navigator.clipboard.writeText(texto).then(() => {
+            alert('✅ Mensagem copiada! Agora é só colar no WhatsApp ou E-mail.');
+        });
+    }
+
+    function buscarContatoFornecedorDaAf(af) {
+        if (!af || !af.fornecedor) return null;
+        const nomeAlvo = af.fornecedor.trim().toLowerCase();
+        return fornecedoresList.find(f =>
+            (f.razao_social || '').trim().toLowerCase().includes(nomeAlvo) ||
+            nomeAlvo.includes((f.razao_social || '').trim().toLowerCase())
+        ) || null;
+    }
+
+    function enviarCobrancaWhatsApp() {
+        const id = parseInt(document.getElementById('cobrancaAfId').value);
+        const af = afs.find(item => item.id === id);
+        const texto = document.getElementById('textoCobrancaGerado').value.trim();
+        if (!texto) {
+            alert('Clique em "✨ Gerar Texto" antes de abrir o WhatsApp.');
+            return;
+        }
+
+        const forn = buscarContatoFornecedorDaAf(af);
+        const telLimpo = forn && forn.telefone ? forn.telefone.replace(/\D/g, '') : '';
+        const numeroWhats = telLimpo ? (telLimpo.startsWith('55') ? telLimpo : `55${telLimpo}`) : '';
+        const url = numeroWhats
+            ? `https://wa.me/${numeroWhats}?text=${encodeURIComponent(texto)}`
+            : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+
+        window.open(url, '_blank');
+    }
+
+    function enviarCobrancaEmail() {
+        const id = parseInt(document.getElementById('cobrancaAfId').value);
+        const af = afs.find(item => item.id === id);
+        const texto = document.getElementById('textoCobrancaGerado').value.trim();
+        if (!texto) {
+            alert('Clique em "✨ Gerar Texto" antes de abrir o e-mail.');
+            return;
+        }
+
+        const forn = buscarContatoFornecedorDaAf(af);
+        const emailDestino = forn && forn.email ? forn.email.split(/[,;]+/)[0].trim() : '';
+        const assunto = `Cobrança de Entrega - ${af ? (af.numaf || af.numAf) : 'AF'} - Almoxarifado da Saúde de Avaré`;
+        const mailto = `mailto:${encodeURIComponent(emailDestino)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
+
+        window.location.href = mailto;
+    }
 </script>
 </body>
 </html>
