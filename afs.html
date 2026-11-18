@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prefeitura de Avaré - Controle de AFs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- XLSX Library -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Supabase JS Client -->
@@ -14,6 +17,199 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     <style>
+        
+/* ==========================================
+   IDENTIDADE VISUAL SIA — PADRÃO COMPRAS
+   Mantém a estrutura e funcionalidades das AFs
+========================================== */
+
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --page-bg: #f1f5f9;
+    --card-bg: #ffffff;
+    --text: #0f172a;
+    --border: #e2e8f0;
+    --muted: #64748b;
+    --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+* {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    background-color: var(--page-bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Cabeçalho */
+.header-official {
+    background: rgba(255,255,255,.96);
+    border: 1px solid var(--border);
+    border-left: 6px solid var(--primary);
+    border-radius: 18px;
+    padding: 20px 24px;
+    box-shadow: var(--shadow);
+}
+
+.header-official h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -.3px;
+}
+
+.header-official h2 {
+    font-size: .84rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* Cartões e painéis */
+.card,
+.panel,
+.metric-card,
+.excel-actions,
+.alphabet-filter {
+    background: rgba(255,255,255,.96);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+}
+
+.card,
+.panel {
+    padding: 20px;
+}
+
+.metric-card {
+    border-radius: 14px;
+    padding: 16px;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(15,23,42,.10);
+}
+
+/* Botões */
+button,
+.btn {
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    transition: all .2s ease;
+}
+
+button:hover,
+.btn:hover {
+    filter: brightness(.96);
+}
+
+/* Campos */
+input,
+select,
+textarea {
+    font-family: 'Inter', sans-serif;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 13px;
+    color: #0f172a;
+    background: #fff;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+
+label {
+    color: #475569;
+    font-weight: 600;
+}
+
+/* Tabelas */
+table {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: .76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+th,
+td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+/* Janelas e modais */
+.modal-content {
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 20px 45px rgba(15,23,42,.15);
+}
+
+/* Login */
+.login-card {
+    border-radius: 18px;
+    box-shadow: 0 20px 45px rgba(15,23,42,.20);
+}
+
+/* Filtros */
+.alphabet-filter {
+    padding: 12px 15px;
+}
+
+.alphabet-btn {
+    border-radius: 9px;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Histórico */
+.history-list {
+    border-radius: 9px;
+    padding: 7px;
+}
+
+/* Responsividade */
+@media (max-width: 700px) {
+    .header-official {
+        border-radius: 14px;
+        padding: 16px;
+    }
+
+    .card,
+    .panel {
+        border-radius: 14px;
+        padding: 15px;
+    }
+
+    .modal-content {
+        border-radius: 14px;
+        padding: 16px;
+    }
+}
+
         :root {
             --primary: #2563eb;
             --success: #16a34a;
