@@ -405,10 +405,26 @@
 </div>
     
 <div class="home-grid no-print">
-    <div class="panel">
-        <h3>🎯 O que precisa de atenção?</h3>
-        <div id="priorityList" class="priority-list"></div>
+    <!-- Coluna Esquerda: Briefing Matinal de Gargalos com IA -->
+    <div class="panel" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%) !important; border-left: 5px solid #7c3aed;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.25rem;">🤖</span>
+                <div>
+                    <h3 style="margin: 0; color: #1e293b;">Briefing Inteligente do Dia</h3>
+                    <span id="iaBriefingSub" style="font-size: 0.75rem; color: #64748b;">Análise automática de gargalos e prioridades</span>
+                </div>
+            </div>
+            <button type="button" id="btnAtualizarBriefing" class="btn btn-outline btn-mini" onclick="gerarBriefingGargalosIA(true)" style="background: #fff; font-weight: 700; padding: 5px 10px;">
+                🔄 Atualizar
+            </button>
+        </div>
+        <div id="iaBriefingConteudo" style="font-size: 0.88rem; color: #334155; line-height: 1.65;">
+            ⏳ Carregando dados das AFs para gerar o diagnóstico...
+        </div>
     </div>
+
+    <!-- Coluna Direita: Resumo da Base + Inspiração do Dia -->
     <div class="panel panel-right-flex">
         <div>
             <h3>📊 Resumo da base</h3>
