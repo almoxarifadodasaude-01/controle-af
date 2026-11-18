@@ -1037,21 +1037,60 @@
         };
     }
 
-    async function restaurarSessaoAFs() {
-        try {
-            const { data, error } = await _supabase.auth.getSession();
-            if (error) throw error;
-            if (data.session?.user) {
-                usuarioLogado = await obterPerfilUsuario(data.session.user);
-                fecharTelaLogin(usuarioLogado.nome);
-                await initApp();
-            }
-        } catch (error) {
-            console.error('Falha ao restaurar sessão:', error);
-            alert(error.message || 'Não foi possível validar sua sessão.');
-        }
+   
+let inicializacaoAFsEmAndamento = false;
+let afsJaInicializado = false;
+
+async function ativarSessaoAFs(session) {
+    if (!session?.user || afsJaInicializado || inicializacaoAFsEmAndamento) {
+        return;
     }
-    restaurarSessaoAFs();
+
+    inicializacaoAFsEmAndamento = true;
+
+    try {
+        usuarioLogado = await obterPerfilUsuario(session.user);
+        fecharTelaLogin(usuarioLogado.nome);
+        await initApp();
+        afsJaInicializado = true;
+    } catch (error) {
+        console.error('Erro ao ativar sessão AFs:', error);
+        alert(error.message || 'Não foi possível validar sua sessão.');
+    } finally {
+        inicializacaoAFsEmAndamento = false;
+    }
+}
+
+// Recupera uma sessão que já existia
+async function restaurarSessaoAFs() {
+    try {
+        const { data, error } = await _supabase.auth.getSession();
+        if (error) throw error;
+
+        if (data.session?.user) {
+            await ativarSessaoAFs(data.session);
+        }
+    } catch (error) {
+        console.error('Falha ao restaurar sessão:', error);
+    }
+}
+
+// Acompanha o login feito no portal principal
+_supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+        setTimeout(() => ativarSessaoAFs(session), 0);
+    }
+
+    if (event === 'SIGNED_OUT') {
+        usuarioLogado = null;
+        afsJaInicializado = false;
+
+        const overlay = document.getElementById('loginOverlay');
+        if (overlay) overlay.style.display = 'flex';
+    }
+});
+
+restaurarSessaoAFs();
 
     async function fazerLoginManual() {
         const email = (document.getElementById('loginUsuario').value || '').trim().toLowerCase();
