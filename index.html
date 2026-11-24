@@ -642,6 +642,87 @@ body {
     border: 0;
     background: transparent;
 }
+
+
+/* ===== SIA-Saúde | Sistema visual compartilhado ===== */
+:root {
+    --sia-navy: #14243a;
+    --sia-primary: #1769aa;
+    --sia-primary-dark: #105487;
+    --sia-page: #f3f6fa;
+    --sia-surface: #ffffff;
+    --sia-text: #172b43;
+    --sia-body: #40536a;
+    --sia-muted: #718198;
+    --sia-border: #e2e9f1;
+    --sia-radius: 15px;
+    --sia-radius-control: 10px;
+    --sia-shadow: 0 4px 16px rgba(20,36,58,.045);
+}
+body {
+    background-color: var(--sia-page);
+    color: var(--sia-body);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+.card, .panel, .kpi-card, .metric-card, .excel-actions, .alphabet-filter {
+    background: var(--sia-surface);
+    border: 1px solid var(--sia-border);
+    border-radius: var(--sia-radius);
+    box-shadow: var(--sia-shadow);
+}
+.card, .panel { padding: 22px; }
+.btn, button {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    border-radius: var(--sia-radius-control);
+    font-weight: 600;
+    transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.btn:focus-visible, button:focus-visible, a:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 3px solid rgba(23,105,170,.22);
+    outline-offset: 2px;
+}
+input, select, textarea {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    border: 1px solid #d9e2ec;
+    border-radius: var(--sia-radius-control);
+    color: var(--sia-text);
+    background: #fff;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: var(--sia-primary);
+    box-shadow: 0 0 0 3px rgba(23,105,170,.10);
+    outline: none;
+}
+table {
+    background: #fff;
+    border-color: var(--sia-border);
+    border-radius: 12px;
+}
+th {
+    background: #f2f6fa;
+    color: #52657b;
+    font-weight: 700;
+}
+th, td { border-bottom-color: #e8edf3; }
+@media (max-width: 700px) {
+    .card, .panel { padding: 15px; }
+}
+
+/* Componentes do portal principal */
+.topbar {
+    background: rgba(255,255,255,.97);
+    border: 1px solid var(--sia-border);
+    border-left: 4px solid var(--sia-primary);
+    border-radius: var(--sia-radius);
+    box-shadow: var(--sia-shadow);
+}
+.topbar h1 { color: var(--sia-text); text-transform: none; letter-spacing: -.45px; }
+.kpi-card { border-top: 3px solid #d8e7f3; }
+.kpi-card.blue { border-top-color: var(--sia-primary); }
+.table-wrap { border: 1px solid var(--sia-border); border-radius: 12px; }
+#view-afs .iframe-container { border: 0; box-shadow: none; background: transparent; }
+
 </style>
 </head>
 <body>
@@ -1074,7 +1155,7 @@ function abrirModulo(modulo) {
         const iframe = document.getElementById('iframeAfs');
 
         if (iframe && !iframe.dataset.carregado) {
-            iframe.src = iframe.dataset.src + '?v=20261124-1842';
+            iframe.src = iframe.dataset.src + '?v=20261124-1845';
             iframe.dataset.carregado = 'true';
         }
     }
