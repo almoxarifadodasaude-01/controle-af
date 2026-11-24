@@ -983,6 +983,12 @@ th, td { border-bottom-color: #e8edf3; }
 
         <!-- MÓDULO 4: PAINEL CONSOLIDADO (INTEGRAÇÃO COMPRAS X AFs) -->
         <section id="view-integracao" class="module-view">
+            <div class="kpi-grid" style="margin-bottom: 18px;">
+                <div class="kpi-card blue"><div class="kpi-label">Pedidos em acompanhamento</div><div class="kpi-val" id="kpiIntegracaoAtivos">0</div><div class="kpi-sub">Pedidos ainda não concluídos</div></div>
+                <div class="kpi-card amber"><div class="kpi-label">Aguardando AF</div><div class="kpi-val" id="kpiIntegracaoSemAf">0</div><div class="kpi-sub">Sem número de AF vinculado</div></div>
+                <div class="kpi-card red"><div class="kpi-label">AF não localizada</div><div class="kpi-val" id="kpiIntegracaoAfAusente">0</div><div class="kpi-sub">Número informado, mas não encontrado</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Saldo pendente</div><div class="kpi-val" id="kpiIntegracaoSaldo">0</div><div class="kpi-sub">Quantidade ainda não recebida</div></div>
+            </div>
             <div class="card">
                 <h3 style="margin-bottom: 8px;">🔗 Cruzamento Automático: Pedidos da Chefia × AFs Emitidas</h3>
                 <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 16px;">
@@ -1512,38 +1518,33 @@ function abrirModulo(modulo) {
     }
 
     // 7. PAINEL CONSOLIDADO (CRUZAMENTO COMPRAS X AFs)
+    function localizarAfDoPedido(numeroAf) {
+        const referencia = String(numeroAf || '').trim().toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
+        if (!referencia) return null;
+        return afsList.find(af => {
+            const numero = String(af.numaf || af.numAf || '').trim().toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
+            return numero && (numero === referencia || numero.includes(referencia) || referencia.includes(numero));
+        }) || null;
+    }
+
     function renderizarCruzamento() {
         const tbody = document.getElementById('tabelaCruzamentoBody');
-        if (!tbody) return;
-
         const pendentes = comprasList.filter(c => c.status !== 'Concluído' && c.status !== 'Cancelado');
-        if (pendentes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">Todos os pedidos estão concluídos!</td></tr>';
-            return;
-        }
-
+        const semAf = pendentes.filter(c => !String(c.num_af_vinculada || '').trim()).length;
+        const afNaoLocalizada = pendentes.filter(c => { const n = String(c.num_af_vinculada || '').trim(); return n && !localizarAfDoPedido(n); }).length;
+        const saldoTotal = pendentes.reduce((total, c) => total + Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0)), 0);
+        const indicadores = { kpiIntegracaoAtivos: pendentes.length, kpiIntegracaoSemAf: semAf, kpiIntegracaoAfAusente: afNaoLocalizada, kpiIntegracaoSaldo: saldoTotal.toLocaleString('pt-BR') };
+        Object.entries(indicadores).forEach(([id, valor]) => { const el = document.getElementById(id); if (el) el.innerText = valor; });
+        if (!tbody) return;
+        if (pendentes.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">Todos os pedidos estão concluídos ou cancelados!</td></tr>'; return; }
         tbody.innerHTML = pendentes.map(c => {
             const saldo = Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0));
-            const afMatch = c.num_af_vinculada
-                ? afsList.find(a => (a.numaf || a.numAf || '').toLowerCase().includes(c.num_af_vinculada.toLowerCase()))
-                : null;
-
+            const numeroAf = String(c.num_af_vinculada || '').trim();
+            const afMatch = localizarAfDoPedido(numeroAf);
             let statusAfHtml = '<span class="badge badge-wait">Aguardando emissão de AF</span>';
-            if (afMatch) {
-                statusAfHtml = `<span class="badge badge-done">${escapeHtml(afMatch.statussancao || 'Regular')} — Forn: ${escapeHtml(afMatch.fornecedor || '')}</span>`;
-            } else if (c.num_af_vinculada) {
-                statusAfHtml = `<span class="badge badge-partial">AF ${escapeHtml(c.num_af_vinculada)} não localizada na tabela AFs</span>`;
-            }
-
-            return `
-                <tr>
-                    <td><strong>${escapeHtml(c.num_pedido)}</strong><br><small>${escapeHtml(c.setor)}</small></td>
-                    <td>${escapeHtml(c.item_descricao)}</td>
-                    <td style="font-weight:700; color:var(--danger);">${saldo} ${escapeHtml(c.unidade || 'UN')}</td>
-                    <td>${c.num_af_vinculada ? `<b>${escapeHtml(c.num_af_vinculada)}</b>` : '—'}</td>
-                    <td>${statusAfHtml}</td>
-                </tr>
-            `;
+            if (afMatch) statusAfHtml = `<span class="badge badge-done">${escapeHtml(afMatch.statussancao || 'Regular')} — Forn: ${escapeHtml(afMatch.fornecedor || '')}</span>`;
+            else if (numeroAf) statusAfHtml = `<span class="badge badge-partial">AF ${escapeHtml(numeroAf)} não localizada na tabela AFs</span>`;
+            return `<tr><td><strong>${escapeHtml(c.num_pedido)}</strong><br><small>${escapeHtml(c.setor)}</small></td><td>${escapeHtml(c.item_descricao)}</td><td style="font-weight:700; color:var(--danger);">${saldo} ${escapeHtml(c.unidade || 'UN')}</td><td>${numeroAf ? `<b>${escapeHtml(numeroAf)}</b>` : '—'}</td><td>${statusAfHtml}</td></tr>`;
         }).join('');
     }
 
