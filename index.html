@@ -1074,7 +1074,7 @@ function abrirModulo(modulo) {
         const iframe = document.getElementById('iframeAfs');
 
         if (iframe && !iframe.dataset.carregado) {
-            iframe.src = iframe.dataset.src;
+            iframe.src = iframe.dataset.src + '?v=20261124-1842';
             iframe.dataset.carregado = 'true';
         }
     }
