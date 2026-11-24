@@ -486,7 +486,99 @@ tr:last-child td {
             .header-official{padding:14px;} .header-official > div:last-child{width:100%;} .header-official > div:last-child .btn{flex:1;}
             #mainTable{display:block; overflow-x:auto; white-space:nowrap;} #mainTable th,#mainTable td{min-width:120px;} #mainTable th:nth-child(3),#mainTable td:nth-child(3){min-width:220px;} #mainTable th:nth-child(9),#mainTable td:nth-child(9){min-width:170px;}
         }
-    </style>
+    
+        /* ===== SIA — UNIFICAÇÃO VISUAL DO MÓDULO DE AFs ===== */
+        :root {
+            --primary: #1769aa;
+            --primary-dark: #105487;
+            --page-bg: #f3f6fa;
+            --text: #172b43;
+            --border: #e2e9f1;
+            --muted: #718198;
+            --shadow: 0 8px 24px rgba(20,36,58,.055);
+        }
+        body { color: var(--text); background-color: var(--page-bg); }
+        button, input, select, textarea { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        button:focus-visible, a:focus-visible, input:focus-visible,
+        select:focus-visible, textarea:focus-visible {
+            outline: 3px solid rgba(23,105,170,.22);
+            outline-offset: 2px;
+        }
+        .header-official {
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--primary);
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(20,36,58,.04);
+        }
+        .header-official h1 {
+            color: #172b43;
+            text-transform: none;
+            letter-spacing: -.45px;
+        }
+        .card, .panel, .metric-card, .excel-actions, .alphabet-filter {
+            border-color: var(--border);
+            border-radius: 15px;
+            box-shadow: 0 4px 16px rgba(20,36,58,.04);
+        }
+        .card, .panel { padding: 22px; }
+        .metric-card {
+            border-top: 3px solid #d8e7f3;
+            transition: transform .18s ease, box-shadow .18s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 24px rgba(20,36,58,.09);
+        }
+        button, .btn {
+            border-radius: 10px;
+            transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+        }
+        button:hover, .btn:hover { filter: none; }
+        button:not(:disabled):active, .btn:not(:disabled):active { transform: translateY(1px); }
+        input, select, textarea {
+            min-height: 40px;
+            border-color: #d9e2ec;
+            border-radius: 10px;
+            box-shadow: 0 1px 2px rgba(20,36,58,.025);
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(23,105,170,.10);
+        }
+        table { border-color: var(--border); border-radius: 12px; }
+        th { background: #f2f6fa; color: #52657b; letter-spacing: .35px; }
+        th, td { border-bottom-color: #e8edf3; }
+        tbody tr:hover:not(.row-vigencia-vencida) { background-color: #f7fafe; }
+        .modal-content {
+            border: 1px solid var(--border);
+            box-shadow: 0 24px 60px rgba(15,32,51,.22);
+        }
+        .login-overlay {
+            background:
+                radial-gradient(circle at 15% 15%, rgba(55,126,180,.28), transparent 34%),
+                linear-gradient(145deg, #101f33 0%, #1b3551 55%, #10243a 100%);
+        }
+        .login-card {
+            border: 1px solid rgba(255,255,255,.65);
+            border-radius: 20px;
+            box-shadow: 0 28px 70px rgba(0,0,0,.28);
+        }
+        .status-online { background: #e7f5ef; color: #14734f; }
+        .status-dot { background: #16845b; }
+        .motivational-box {
+            background: linear-gradient(135deg, #edf5fb 0%, #f8fafc 100%);
+            border-color: #d8e7f3;
+            border-left-color: var(--primary);
+        }
+        @media (max-width:700px) {
+            body { padding: 8px; }
+            .header-official { border-radius: 14px; }
+            .card, .panel { padding: 15px; }
+            .metric-card { border-radius: 12px; }
+            .modal-content { border-radius: 14px; }
+        }
+
+</style>
 </head>
 <body>
 
