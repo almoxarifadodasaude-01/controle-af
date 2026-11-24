@@ -795,6 +795,14 @@ th, td { border-bottom-color: #e8edf3; }
                     <span class="nav-icon">🔗</span>
                     <span class="hide-collapsed">Painel Consolidado</span>
                 </button>
+                <button type="button" id="btn-mod-historico" class="nav-btn" onclick="abrirModulo('historico')">
+                    <span class="nav-icon">🕘</span>
+                    <span class="hide-collapsed">Histórico de Movimentações</span>
+                </button>
+                <button type="button" id="btn-mod-relatorios" class="nav-btn" onclick="abrirModulo('relatorios')">
+                    <span class="nav-icon">📊</span>
+                    <span class="hide-collapsed">Relatórios Gerenciais</span>
+                </button>
             </div>
         </div>
 
@@ -1010,6 +1018,65 @@ th, td { border-bottom-color: #e8edf3; }
                 </div>
             </div>
         </section>
+
+        <!-- MÓDULO 5: HISTÓRICO DE MOVIMENTAÇÕES -->
+        <section id="view-historico" class="module-view">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+                    <div>
+                        <h3 style="font-size:1.08rem; color:var(--text-main);">🕘 Histórico de Movimentações</h3>
+                        <p style="font-size:.84rem; color:var(--muted); margin-top:4px;">Registro automático de inclusões, alterações e exclusões dos pedidos de compra.</p>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="carregarHistoricoCompras()">↻ Atualizar histórico</button>
+                </div>
+                <div class="form-grid">
+                    <div><label>Buscar</label><input id="filtroHistoricoBusca" type="text" placeholder="Pedido, usuário ou conteúdo..." oninput="renderizarHistoricoCompras()"></div>
+                    <div><label>Tipo de movimentação</label><select id="filtroHistoricoAcao" onchange="renderizarHistoricoCompras()"><option value="TODOS">Todas as movimentações</option><option value="INSERT">Inclusões</option><option value="UPDATE">Alterações</option><option value="DELETE">Exclusões</option></select></div>
+                    <div><label>Data inicial</label><input id="filtroHistoricoDe" type="date" onchange="renderizarHistoricoCompras()"></div>
+                    <div><label>Data final</label><input id="filtroHistoricoAte" type="date" onchange="renderizarHistoricoCompras()"></div>
+                </div>
+                <p id="historicoComprasStatus" style="font-size:.82rem; color:var(--muted); margin-bottom:10px;">Carregando histórico...</p>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Data e hora</th><th>Movimentação</th><th>Pedido</th><th>Usuário</th><th>Resumo</th></tr></thead>
+                        <tbody id="tabelaHistoricoComprasBody"><tr><td colspan="5" style="text-align:center; padding:22px;">Aguardando carregamento...</td></tr></tbody>
+                    </table>
+                </div>
+                <p style="font-size:.76rem; color:var(--muted); margin-top:10px;">O histórico registra as movimentações a partir da ativação do registro automático. Exibe até 500 registros mais recentes.</p>
+            </div>
+        </section>
+
+        <!-- MÓDULO 6: RELATÓRIOS GERENCIAIS -->
+        <section id="view-relatorios" class="module-view">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+                    <div>
+                        <h3 style="font-size:1.08rem; color:var(--text-main);">📊 Relatórios Gerenciais de Compras</h3>
+                        <p style="font-size:.84rem; color:var(--muted); margin-top:4px;">Indicadores e relação de pedidos conforme os filtros selecionados.</p>
+                    </div>
+                    <button type="button" class="btn btn-success btn-sm" onclick="exportarRelatorioCompras()">⬇ Exportar relatório Excel</button>
+                </div>
+                <div class="form-grid">
+                    <div><label>Data inicial</label><input id="relatorioDataDe" type="date" onchange="renderizarRelatorioCompras()"></div>
+                    <div><label>Data final</label><input id="relatorioDataAte" type="date" onchange="renderizarRelatorioCompras()"></div>
+                    <div><label>Setor</label><select id="relatorioSetor" onchange="renderizarRelatorioCompras()"><option value="TODOS">Todos os setores</option></select></div>
+                    <div><label>Status</label><select id="relatorioStatus" onchange="renderizarRelatorioCompras()"><option value="TODOS">Todos os status</option><option value="Aguardando AF">Aguardando AF</option><option value="Em Cotação">Em Cotação</option><option value="AF Emitida">AF Emitida</option><option value="Entrega Parcial">Entrega Parcial</option><option value="Concluído">Concluído</option><option value="Cancelado">Cancelado</option></select></div>
+                </div>
+                <div class="kpi-grid">
+                    <div class="kpi-card blue"><div class="kpi-label">Pedidos no período</div><div class="kpi-val" id="relKpiTotal">0</div><div class="kpi-sub">Registros filtrados</div></div>
+                    <div class="kpi-card amber"><div class="kpi-label">Em andamento</div><div class="kpi-val" id="relKpiAtivos">0</div><div class="kpi-sub">Não concluídos ou cancelados</div></div>
+                    <div class="kpi-card green"><div class="kpi-label">Concluídos</div><div class="kpi-val" id="relKpiConcluidos">0</div><div class="kpi-sub">Pedidos entregues</div></div>
+                    <div class="kpi-card purple"><div class="kpi-label">Quantidade pedida</div><div class="kpi-val" id="relKpiPedida">0</div><div class="kpi-sub">Soma das quantidades</div></div>
+                    <div class="kpi-card red"><div class="kpi-label">Saldo pendente</div><div class="kpi-val" id="relKpiSaldo">0</div><div class="kpi-sub">Quantidade ainda não recebida</div></div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Pedido / Data</th><th>Setor</th><th>Descrição</th><th>Qtd. pedida</th><th>Entregue</th><th>Saldo</th><th>Status</th></tr></thead>
+                        <tbody id="tabelaRelatorioComprasBody"><tr><td colspan="7" style="text-align:center; padding:22px;">Selecione os filtros ou aguarde os dados.</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </main>
 </div>
 
@@ -1173,7 +1240,9 @@ function abrirModulo(modulo) {
         compras: ['Controle de Compras & Pedidos', 'Gestão de solicitações, quantidades pedidas, entregas recebidas e saldos'],
         afs: ['Controle Interno de AFs', 'Autorizações de Fornecimento, empenhos, cobranças e vigências'],
         whatsapp: ['Central de Atendimento WhatsApp', 'Comunicação integrada por setores do Almoxarifado da Saúde'],
-        integracao: ['Painel Consolidado (Pedidos × AFs)', 'Cruzamento automático entre solicitações de compra e AFs emitidas']
+        integracao: ['Painel Consolidado (Pedidos × AFs)', 'Cruzamento automático entre solicitações de compra e AFs emitidas'],
+        historico: ['Histórico de Movimentações', 'Rastreabilidade das inclusões, alterações e exclusões de pedidos'],
+        relatorios: ['Relatórios Gerenciais', 'Indicadores e consultas gerenciais de compras e entregas']
     };
 
     if (titulos[modulo]) {
@@ -1181,8 +1250,11 @@ function abrirModulo(modulo) {
         document.getElementById('topSub').innerText = titulos[modulo][1];
     }
 
-    if (modulo === 'integracao') {
-        renderizarCruzamento();
+    if (modulo === 'integracao') renderizarCruzamento();
+    if (modulo === 'historico') carregarHistoricoCompras();
+    if (modulo === 'relatorios') {
+        popularFiltroRelatorioSetores();
+        renderizarRelatorioCompras();
     }
 }
 
@@ -1548,7 +1620,136 @@ function abrirModulo(modulo) {
         }).join('');
     }
 
-    // 8. LEITOR DE PDF COM IA PARA PEDIDOS DE COMPRA
+    // 8. HISTÓRICO DE MOVIMENTAÇÕES E RELATÓRIOS GERENCIAIS
+    let historicoComprasList = [];
+    let relatorioComprasFiltradas = [];
+
+    async function carregarHistoricoCompras() {
+        const status = document.getElementById('historicoComprasStatus');
+        const tbody = document.getElementById('tabelaHistoricoComprasBody');
+        if (status) status.innerText = 'Carregando movimentações...';
+        const { data, error } = await _supabase
+            .from('historico_compras')
+            .select('*')
+            .order('data_hora', { ascending: false })
+            .limit(500);
+        if (error) {
+            console.error('Erro ao carregar histórico:', error);
+            if (status) status.innerText = 'Não foi possível carregar o histórico: ' + error.message;
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:22px; color:var(--danger);">Falha ao consultar o histórico. Verifique a permissão de leitura da tabela.</td></tr>';
+            return;
+        }
+        historicoComprasList = data || [];
+        renderizarHistoricoCompras();
+    }
+
+    function resumoMovimentacaoHistorico(registro) {
+        const dados = registro.dados_novos || registro.dados_anteriores || {};
+        const partes = [];
+        if (dados.item_descricao) partes.push(String(dados.item_descricao));
+        if (dados.status) partes.push('Status: ' + String(dados.status));
+        if (dados.qtd_pedida !== undefined) partes.push('Qtd.: ' + dados.qtd_pedida);
+        if (registro.acao === 'UPDATE' && registro.dados_anteriores && registro.dados_novos) {
+            const antes = registro.dados_anteriores.status || '';
+            const depois = registro.dados_novos.status || '';
+            if (antes && depois && antes !== depois) partes.push('Status: ' + antes + ' → ' + depois);
+        }
+        return partes.join(' • ') || 'Dados do pedido registrados';
+    }
+
+    function renderizarHistoricoCompras() {
+        const tbody = document.getElementById('tabelaHistoricoComprasBody');
+        if (!tbody) return;
+        const busca = (document.getElementById('filtroHistoricoBusca')?.value || '').trim().toLocaleLowerCase('pt-BR');
+        const acao = document.getElementById('filtroHistoricoAcao')?.value || 'TODOS';
+        const de = document.getElementById('filtroHistoricoDe')?.value || '';
+        const ate = document.getElementById('filtroHistoricoAte')?.value || '';
+        const filtrados = historicoComprasList.filter(r => {
+            const data = String(r.data_hora || '').slice(0, 10);
+            const texto = [r.numero_pedido, r.pedido_id, r.usuario_nome, r.acao, resumoMovimentacaoHistorico(r)].join(' ').toLocaleLowerCase('pt-BR');
+            return (acao === 'TODOS' || r.acao === acao)
+                && (!de || data >= de) && (!ate || data <= ate)
+                && (!busca || texto.includes(busca));
+        });
+        const status = document.getElementById('historicoComprasStatus');
+        if (status) status.innerText = filtrados.length + ' movimentação(ões) encontrada(s) • ' + historicoComprasList.length + ' carregada(s)';
+        if (!filtrados.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:22px; color:var(--muted);">Nenhuma movimentação encontrada para os filtros selecionados.</td></tr>';
+            return;
+        }
+        const acoes = { INSERT: ['Inclusão', 'badge-done'], UPDATE: ['Alteração', 'badge-af'], DELETE: ['Exclusão', 'badge-cancel'] };
+        tbody.innerHTML = filtrados.map(r => {
+            const ac = acoes[r.acao] || [r.acao || 'Movimentação', 'badge-wait'];
+            const data = r.data_hora ? new Date(r.data_hora).toLocaleString('pt-BR') : '—';
+            return '<tr><td style="white-space:nowrap;">' + escapeHtml(data) + '</td><td><span class="badge ' + ac[1] + '">' + escapeHtml(ac[0]) + '</span></td><td><strong>' + escapeHtml(r.numero_pedido || ('ID ' + (r.pedido_id || '—'))) + '</strong></td><td>' + escapeHtml(r.usuario_nome || 'Sistema') + '</td><td style="min-width:240px;">' + escapeHtml(resumoMovimentacaoHistorico(r)) + '</td></tr>';
+        }).join('');
+    }
+
+    function popularFiltroRelatorioSetores() {
+        const sel = document.getElementById('relatorioSetor');
+        if (!sel) return;
+        const atual = sel.value || 'TODOS';
+        sel.innerHTML = '<option value="TODOS">Todos os setores</option>' +
+            setoresList.map(item => '<option value="' + escapeHtml(item.nome) + '">' + escapeHtml(item.nome) + '</option>').join('');
+        sel.value = Array.from(sel.options).some(o => o.value === atual) ? atual : 'TODOS';
+    }
+
+    function renderizarRelatorioCompras() {
+        const de = document.getElementById('relatorioDataDe')?.value || '';
+        const ate = document.getElementById('relatorioDataAte')?.value || '';
+        const setor = document.getElementById('relatorioSetor')?.value || 'TODOS';
+        const status = document.getElementById('relatorioStatus')?.value || 'TODOS';
+        relatorioComprasFiltradas = comprasList.filter(c => {
+            const data = String(c.data_pedido || '').slice(0, 10);
+            return (!de || data >= de) && (!ate || data <= ate)
+                && (setor === 'TODOS' || c.setor === setor)
+                && (status === 'TODOS' || c.status === status);
+        });
+        const lista = relatorioComprasFiltradas;
+        const ativos = lista.filter(c => c.status !== 'Concluído' && c.status !== 'Cancelado');
+        const concluidos = lista.filter(c => c.status === 'Concluído').length;
+        const pedida = lista.reduce((soma, c) => soma + Number(c.qtd_pedida || 0), 0);
+        const saldo = ativos.reduce((soma, c) => soma + Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0)), 0);
+        const formatar = n => Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+        const valores = { relKpiTotal: lista.length, relKpiAtivos: ativos.length, relKpiConcluidos: concluidos, relKpiPedida: formatar(pedida), relKpiSaldo: formatar(saldo) };
+        Object.entries(valores).forEach(([id, valor]) => { const el = document.getElementById(id); if (el) el.innerText = valor; });
+        const tbody = document.getElementById('tabelaRelatorioComprasBody');
+        if (!tbody) return;
+        if (!lista.length) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:22px; color:var(--muted);">Nenhum pedido encontrado para os filtros selecionados.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = lista.slice().sort((a, b) => String(b.data_pedido || '').localeCompare(String(a.data_pedido || ''))).map(c => {
+            const falta = Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0));
+            const data = c.data_pedido ? c.data_pedido.split('-').reverse().join('/') : '—';
+            return '<tr><td><strong>' + escapeHtml(c.num_pedido || '—') + '</strong><br><small>' + data + '</small></td><td>' + escapeHtml(c.setor || '—') + '</td><td>' + escapeHtml(c.item_descricao || '—') + '</td><td>' + formatar(c.qtd_pedida) + ' ' + escapeHtml(c.unidade || 'UN') + '</td><td>' + formatar(c.qtd_entregue) + '</td><td style="font-weight:700; color:' + (falta > 0 ? 'var(--danger)' : 'var(--success)') + ';">' + formatar(falta) + '</td><td>' + badgeStatusHtml(c.status) + '</td></tr>';
+        }).join('');
+    }
+
+    function exportarRelatorioCompras() {
+        if (!relatorioComprasFiltradas.length) {
+            alert('Não há pedidos para exportar com os filtros selecionados.');
+            return;
+        }
+        const linhas = relatorioComprasFiltradas.map(c => ({
+            'Pedido': c.num_pedido || '',
+            'Data': c.data_pedido || '',
+            'Setor': c.setor || '',
+            'Solicitante': c.solicitante || '',
+            'Descrição': c.item_descricao || '',
+            'Quantidade pedida': Number(c.qtd_pedida || 0),
+            'Quantidade entregue': Number(c.qtd_entregue || 0),
+            'Saldo pendente': Math.max(0, Number(c.qtd_pedida || 0) - Number(c.qtd_entregue || 0)),
+            'AF vinculada': c.num_af_vinculada || '',
+            'Status': c.status || ''
+        }));
+        const ws = XLSX.utils.json_to_sheet(linhas);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Relatorio_Gerencial');
+        XLSX.writeFile(wb, 'Relatorio_Gerencial_Compras_SIA_Saude.xlsx');
+    }
+
+    // 9. LEITOR DE PDF COM IA PARA PEDIDOS DE COMPRA
     async function lerPdfCompraComIA(event) {
         const file = event.target.files[0];
         if (!file) return;
