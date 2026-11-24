@@ -580,7 +580,21 @@ tr:last-child td {
 
 
 
-/* SIA: o cabeçalho institucional do módulo AF fica oculto dentro do portal principal. */
+
+/* Integração visual AFs com o portal SIA (padrão Compras & Pedidos) */
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 100% !important;
+    background: #f3f6fa !important;
+}
+body { color: #40536a; }
+.container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 2px 18px !important;
+}
 #mainHeader { display: none !important; }
 </style>
 </head>
@@ -620,25 +634,6 @@ tr:last-child td {
 <!-- Cabeçalho Oficial Web -->
 
 <!-- Cabeçalho Oficial Minimalista -->
-<div id="mainHeader" class="header-official">
-    <div>
-        <h1>Prefeitura da Estância Turística de Avaré</h1>
-        <h2>Almoxarifado da Saúde — Controle Interno de AFs</h2>
-    </div>
-
-    <div class="no-print header-user-area">
-        <span class="status-online">
-            <span class="status-dot"></span>
-            <span id="loggedUserName">Usuário</span>
-        </span>
-
-        <button type="button" class="btn btn-outline"
-            style="color: #ef4444;"
-            onclick="logout()">
-            Sair
-        </button>
-    </div>
-</div>
 
 <div class="quick-nav no-print" id="quickNav">
     <button class="btn" type="button" onclick="scrollToSection('mainCardForm')">➕ Nova AF</button>
