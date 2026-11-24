@@ -743,7 +743,17 @@ th, td { border-bottom-color: #e8edf3; }
                 <input type="password" id="loginPass" placeholder="••••••••" required>
             </div>
             <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 6px;">Entrar no Portal</button>
+            <button type="button" onclick="solicitarRecuperacaoSenha()" style="background:none; border:0; color:var(--primary); font-weight:600; cursor:pointer; padding:8px; font-size:.88rem;">Esqueci minha senha</button>
         </form>
+        <div id="recoveryCard" style="display:none; text-align:left;">
+            <h2 style="text-align:center; margin-bottom:8px;">Redefinir senha</h2>
+            <p style="text-align:center;">Crie uma nova senha para acessar o SIA-Saúde.</p>
+            <form class="login-form" onsubmit="event.preventDefault(); salvarNovaSenha();">
+                <div><label>Nova senha</label><input type="password" id="novaSenha" autocomplete="new-password" minlength="6" placeholder="Mínimo de 6 caracteres" required></div>
+                <div><label>Confirmar nova senha</label><input type="password" id="confirmarNovaSenha" autocomplete="new-password" minlength="6" placeholder="Digite novamente" required></div>
+                <button type="submit" class="btn btn-primary" style="width:100%; padding:12px;">Salvar nova senha</button>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -1153,6 +1163,15 @@ th, td { border-bottom-color: #e8edf3; }
         try {
             const { data, error } = await _supabase.auth.getSession();
             if (error) throw error;
+            const linkRecuperacao = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('type') === 'recovery';
+            if (linkRecuperacao) {
+                document.getElementById('loginOverlay').style.display = 'flex';
+                document.getElementById('appLayout').style.display = 'none';
+                document.querySelector('#loginOverlay .login-card > form').style.display = 'none';
+                document.getElementById('recoveryCard').style.display = 'block';
+                if (!data.session?.user) alert('Não foi possível validar o link de recuperação. Solicite um novo e-mail.');
+                return;
+            }
             if (data.session?.user) {
                 usuarioLogado = await obterPerfilUsuario(data.session.user);
                 entrarNoPortal(usuarioLogado);
@@ -1168,6 +1187,45 @@ th, td { border-bottom-color: #e8edf3; }
     }
 
     restaurarSessaoPortal();
+
+    async function solicitarRecuperacaoSenha() {
+        const email = (document.getElementById('loginUser').value || '').trim().toLowerCase();
+        if (!email) {
+            alert('Digite seu e-mail institucional no campo de login para receber o link de recuperação.');
+            document.getElementById('loginUser').focus();
+            return;
+        }
+        try {
+            const redirectTo = window.location.origin + window.location.pathname;
+            const { error } = await _supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            if (error) throw error;
+            alert('Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha. Verifique também a caixa de spam.');
+        } catch (error) {
+            console.error('Erro ao solicitar recuperação:', error);
+            alert('Não foi possível enviar o e-mail de recuperação. Tente novamente ou procure o administrador.');
+        }
+    }
+
+    async function salvarNovaSenha() {
+        const senha = document.getElementById('novaSenha').value;
+        const confirmacao = document.getElementById('confirmarNovaSenha').value;
+        if (senha.length < 6) { alert('A nova senha deve ter pelo menos 6 caracteres.'); return; }
+        if (senha !== confirmacao) { alert('As senhas não coincidem.'); return; }
+        try {
+            const { error } = await _supabase.auth.updateUser({ password: senha });
+            if (error) throw error;
+            await _supabase.auth.signOut();
+            window.history.replaceState({}, document.title, window.location.pathname);
+            document.getElementById('recoveryCard').style.display = 'none';
+            document.querySelector('#loginOverlay .login-card > form').style.display = 'flex';
+            document.getElementById('novaSenha').value = '';
+            document.getElementById('confirmarNovaSenha').value = '';
+            alert('Senha alterada com sucesso! Agora entre com sua nova senha.');
+        } catch (error) {
+            console.error('Erro ao atualizar senha:', error);
+            alert('Não foi possível alterar a senha. Solicite um novo link de recuperação.');
+        }
+    }
 
     async function realizarLoginPortal() {
         const email = (document.getElementById('loginUser').value || '').trim().toLowerCase();
