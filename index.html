@@ -787,6 +787,10 @@ th, td { border-bottom-color: #e8edf3; }
                     <span class="nav-icon">🛒</span>
                     <span class="hide-collapsed">Compras & Pedidos</span>
                 </button>
+                <button type="button" id="btn-mod-aes" class="nav-btn" onclick="abrirModulo('aes')">
+                    <span class="nav-icon">🧾</span>
+                    <span class="hide-collapsed">Autorizações de Empenho (AE)</span>
+                </button>
                 <button type="button" id="btn-mod-afs" class="nav-btn" onclick="abrirModulo('afs')">
                     <span class="nav-icon">📦</span>
                     <span class="hide-collapsed">Controle de AFs</span>
@@ -862,6 +866,61 @@ th, td { border-bottom-color: #e8edf3; }
   <button class="dash-shortcut" onclick="abrirModulo('relatorios')"><span>📊</span><b>Relatórios</b><small>Indicadores gerenciais</small></button>
  </div></div>
 </section>
+
+        <!-- MÓDULO AE: AUTORIZAÇÕES DE EMPENHO -->
+        <section id="view-aes" class="module-view">
+            <div class="kpi-grid">
+                <div class="kpi-card blue"><div class="kpi-label">Total de AEs</div><div class="kpi-val" id="aeKpiTotal">0</div><div class="kpi-sub">Documentos cadastrados</div></div>
+                <div class="kpi-card amber"><div class="kpi-label">Aguardando empenho</div><div class="kpi-val" id="aeKpiAguardando">0</div><div class="kpi-sub">Enviadas para Compras</div></div>
+                <div class="kpi-card green"><div class="kpi-label">Empenhadas</div><div class="kpi-val" id="aeKpiEmpenhadas">0</div><div class="kpi-sub">Prontas para gerar AF</div></div>
+                <div class="kpi-card purple"><div class="kpi-label">Valor total</div><div class="kpi-val" id="aeKpiValor">R$ 0,00</div><div class="kpi-sub">Soma das AEs cadastradas</div></div>
+            </div>
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                    <div><h3 style="color:var(--text-main);font-size:1.08rem;">Nova Autorização de Empenho</h3><p style="font-size:.8rem;color:var(--muted);margin-top:4px;">Importe o PDF do Fiorilli ou preencha os dados manualmente.</p></div>
+                    <div>
+                        <input type="file" id="inputPdfAE" accept="application/pdf" style="display:none" onchange="lerPdfAE(event)">
+                        <button type="button" id="btnPdfAE" class="btn btn-outline" onclick="document.getElementById('inputPdfAE').click()">📄 Importar PDF da AE</button>
+                    </div>
+                </div>
+                <form id="formAE" onsubmit="salvarAE(event)">
+                    <input type="hidden" id="aeEditId">
+                    <div class="form-grid">
+                        <div><label>Número da AE *</label><input id="aeNumero" required placeholder="Número da autorização"></div>
+                        <div><label>Fornecedor *</label><input id="aeFornecedor" required placeholder="Razão social do fornecedor"></div>
+                        <div><label>Data de emissão</label><input type="date" id="aeDataEmissao"></div>
+                        <div><label>Prazo de entrega</label><input type="date" id="aePrazoEntrega"></div>
+                        <div><label>Número do empenho</label><input id="aeNumeroEmpenho" placeholder="Preencher após Compras empenhar"></div>
+                        <div><label>Data do empenho</label><input type="date" id="aeDataEmpenho"></div>
+                        <div><label>Situação</label><select id="aeStatus"><option value="Aguardando empenho">Aguardando empenho</option><option value="Empenhada">Empenhada</option><option value="AF emitida">AF emitida</option><option value="Concluída">Concluída</option><option value="Cancelada">Cancelada</option></select></div>
+                        <div><label>Fiscal / responsável</label><input id="aeResponsavel" placeholder="Nome do responsável"></div>
+                    </div>
+                    <div style="margin:8px 0 12px;"><label>Observações</label><textarea id="aeObservacoes" rows="2" placeholder="Informações complementares"></textarea></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 10px;">
+                        <h4 style="color:var(--text-main);">Produtos da AE</h4>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="adicionarItemAE()">＋ Adicionar produto</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table><thead><tr><th>Código</th><th>Descrição do produto *</th><th>Qtd. *</th><th>Unidade</th><th>Valor unitário</th><th>Valor total</th><th></th></tr></thead>
+                        <tbody id="aeItensBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);">Adicione os produtos da AE.</td></tr></tbody></table>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:12px;font-weight:800;color:var(--text-main);">Valor total da AE: <span id="aeValorTotalPreview" style="margin-left:8px;">R$ 0,00</span></div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
+                        <button type="submit" id="btnSalvarAE" class="btn btn-primary">💾 Salvar AE</button>
+                        <button type="button" class="btn btn-outline" onclick="limparFormAE()">Limpar formulário</button>
+                        <span id="aePdfNome" style="align-self:center;color:var(--muted);font-size:.78rem;"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+                    <h3 style="font-size:1.05rem;">Acompanhamento das AEs</h3>
+                    <input id="buscaAE" type="search" placeholder="Buscar AE, fornecedor ou empenho..." oninput="renderizarAEs()" style="max-width:320px;">
+                </div>
+                <div class="table-wrap"><table><thead><tr><th>AE / Emissão</th><th>Fornecedor</th><th>Empenho</th><th>Produtos</th><th>Valor</th><th>Situação</th><th>Documento</th></tr></thead>
+                    <tbody id="tabelaAEsBody"><tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">Carregando AEs...</td></tr></tbody></table></div>
+            </div>
+        </section>
 
         <!-- MÓDULO 1: COMPRAS & PEDIDOS (CHEFIA) -->
         <section id="view-compras" class="module-view active">
@@ -1159,6 +1218,8 @@ th, td { border-bottom-color: #e8edf3; }
 
     let usuarioLogado = null;
     let comprasList = [];
+    let aeList = [];
+    let aePdfArquivo = null;
     let afsList = [];
     let setoresList = [];
     let geminiApiKey = ''; // Segredo mantido exclusivamente no servidor (Edge Function).
@@ -1322,6 +1383,7 @@ function abrirModulo(modulo) {
 
     const titulos = {
         dashboard: ['Visão Geral do SIA-Saúde', 'Painel gerencial do Almoxarifado da Saúde de Avaré'],
+        aes: ['Autorizações de Empenho (AE)', 'Cadastro, importação de PDF e acompanhamento dos empenhos'],
         compras: ['Controle de Compras & Pedidos', 'Gestão de solicitações, quantidades pedidas, entregas recebidas e saldos'],
         afs: ['Controle Interno de AFs', 'Autorizações de Fornecimento, empenhos, cobranças e vigências'],
         whatsapp: ['Central de Atendimento WhatsApp', 'Comunicação integrada por setores do Almoxarifado da Saúde'],
@@ -1335,6 +1397,7 @@ function abrirModulo(modulo) {
         document.getElementById('topSub').innerText = titulos[modulo][1];
     }
 
+    if (modulo === 'aes') carregarAEs();
     if (modulo === 'dashboard') renderizarDashboard();
     if (modulo === 'integracao') renderizarCruzamento();
     if (modulo === 'historico') carregarHistoricoCompras();
@@ -1366,6 +1429,7 @@ function abrirModulo(modulo) {
 
         // Busca Pedidos de Compra
         await carregarCompras();
+        await carregarAEs();
     }
 
     function popularSelectSetores() {
@@ -1879,6 +1943,249 @@ function abrirModulo(modulo) {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Relatorio_Gerencial');
         XLSX.writeFile(wb, 'Relatorio_Gerencial_Compras_SIA_Saude.xlsx');
+    }
+
+    // MÓDULO AE — cadastro manual, importação assistida de PDF e acompanhamento.
+    const moedaAE = valor => Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    function dataISOAE(valor) {
+        if (!valor) return '';
+        const s = String(valor).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const m = s.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{4})$/);
+        return m ? m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0') : '';
+    }
+    function adicionarItemAE(item = {}) {
+        const tbody = document.getElementById('aeItensBody');
+        if (tbody.querySelector('[data-vazio]')) tbody.innerHTML = '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input class="ae-codigo" value="${escapeHtml(item.codigo_produto || '')}" placeholder="Código" style="min-width:90px"></td>
+            <td><input class="ae-descricao" value="${escapeHtml(item.descricao || '')}" required placeholder="Nome do produto" style="min-width:210px"></td>
+            <td><input class="ae-qtd" type="number" min="0.001" step="0.001" value="${Number(item.quantidade || '') || ''}" required style="min-width:85px" oninput="atualizarTotalAE()"></td>
+            <td><input class="ae-unidade" value="${escapeHtml(item.unidade || 'UN')}" style="min-width:70px"></td>
+            <td><input class="ae-unitario" type="number" min="0" step="0.0001" value="${Number(item.valor_unitario || '') || ''}" style="min-width:110px" oninput="atualizarTotalAE()"></td>
+            <td class="ae-total-item" style="white-space:nowrap;font-weight:700">${moedaAE(item.valor_total || (Number(item.quantidade || 0) * Number(item.valor_unitario || 0)))}</td>
+            <td><button type="button" class="btn btn-danger btn-sm" title="Remover produto" onclick="this.closest('tr').remove();atualizarTotalAE()">✕</button></td>`;
+        tbody.appendChild(tr);
+        atualizarTotalAE();
+    }
+    function coletarItensAE() {
+        return Array.from(document.querySelectorAll('#aeItensBody tr')).filter(tr => tr.querySelector('.ae-descricao')).map(tr => {
+            const quantidade = Number(tr.querySelector('.ae-qtd').value || 0);
+            const unitario = Number(tr.querySelector('.ae-unitario').value || 0);
+            return {
+                codigo_produto: tr.querySelector('.ae-codigo').value.trim() || null,
+                descricao: tr.querySelector('.ae-descricao').value.trim(),
+                quantidade,
+                unidade: tr.querySelector('.ae-unidade').value.trim().toUpperCase() || 'UN',
+                valor_unitario: unitario,
+                valor_total: Math.round(quantidade * unitario * 100) / 100
+            };
+        });
+    }
+    function atualizarTotalAE() {
+        const itens = coletarItensAE();
+        let total = 0;
+        document.querySelectorAll('#aeItensBody tr').forEach(tr => {
+            const q = Number(tr.querySelector('.ae-qtd')?.value || 0);
+            const u = Number(tr.querySelector('.ae-unitario')?.value || 0);
+            const valor = q * u;
+            total += valor;
+            const cell = tr.querySelector('.ae-total-item');
+            if (cell) cell.textContent = moedaAE(valor);
+        });
+        const el = document.getElementById('aeValorTotalPreview');
+        if (el) el.textContent = moedaAE(total);
+        return total;
+    }
+    function limparFormAE() {
+        document.getElementById('formAE').reset();
+        document.getElementById('aeEditId').value = '';
+        document.getElementById('aeItensBody').innerHTML = '<tr data-vazio><td colspan="7" style="text-align:center;color:var(--muted);">Adicione os produtos da AE.</td></tr>';
+        document.getElementById('aePdfNome').textContent = '';
+        document.getElementById('inputPdfAE').value = '';
+        aePdfArquivo = null;
+        document.getElementById('aeStatus').value = 'Aguardando empenho';
+        atualizarTotalAE();
+    }
+    async function lerPdfAE(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        if (file.type !== 'application/pdf') { alert('Selecione um arquivo PDF.'); return; }
+        const btn = document.getElementById('btnPdfAE');
+        btn.disabled = true; btn.textContent = 'Lendo PDF...';
+        try {
+            const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+            let texto = '';
+            for (let p = 1; p <= pdf.numPages; p++) {
+                const page = await pdf.getPage(p);
+                const content = await page.getTextContent();
+                texto += content.items.map(x => x.str).join(' ') + '\n';
+            }
+            if (!texto.trim()) throw new Error('O PDF não possui texto selecionável. Será necessário preencher manualmente ou usar um PDF com OCR.');
+            const prompt = `Leia esta Autorização de Empenho (AE) do Fiorilli e extraia os dados. Responda somente JSON válido, sem markdown, neste formato:
+{
+ "numero_ae":"string",
+ "fornecedor":"string",
+ "data_emissao":"YYYY-MM-DD",
+ "prazo_entrega":"YYYY-MM-DD",
+ "valor_total":0,
+ "responsavel_nome":"string",
+ "observacoes":"string",
+ "itens":[{"codigo_produto":"string","descricao":"string","quantidade":0,"unidade":"UN","valor_unitario":0,"valor_total":0}]
+}
+Não invente valores. Se um campo não estiver no documento, use string vazia ou 0. Inclua todos os produtos, um por item.
+TEXTO DO PDF:
+${texto.slice(0,24000)}`;
+            const { data, error } = await _supabase.functions.invoke('gemini-ai', { body: { prompt, temperature: 0.1 } });
+            if (error) throw error;
+            const resposta = String(data?.text || '').replace(/^```json/i,'').replace(/```$/,'').trim();
+            const dados = JSON.parse(resposta);
+            document.getElementById('aeNumero').value = dados.numero_ae || '';
+            document.getElementById('aeFornecedor').value = dados.fornecedor || '';
+            document.getElementById('aeDataEmissao').value = dataISOAE(dados.data_emissao);
+            document.getElementById('aePrazoEntrega').value = dataISOAE(dados.prazo_entrega);
+            document.getElementById('aeResponsavel').value = dados.responsavel_nome || '';
+            document.getElementById('aeObservacoes').value = dados.observacoes || '';
+            document.getElementById('aeItensBody').innerHTML = '';
+            (dados.itens || []).forEach(item => adicionarItemAE(item));
+            if (!(dados.itens || []).length) adicionarItemAE();
+            aePdfArquivo = file;
+            document.getElementById('aePdfNome').textContent = 'PDF selecionado: ' + file.name + ' — confira os dados antes de salvar.';
+            if (dados.valor_total && !(dados.itens || []).length) document.getElementById('aeValorTotalPreview').textContent = moedaAE(dados.valor_total);
+            alert('Dados extraídos. Confira todos os campos e produtos antes de salvar a AE.');
+        } catch (err) {
+            aePdfArquivo = file;
+            document.getElementById('aePdfNome').textContent = 'PDF selecionado: ' + file.name + ' — preencha os dados manualmente.';
+            alert('Não foi possível extrair os dados automaticamente: ' + err.message + '\\nVocê ainda pode preencher o formulário manualmente e anexar o PDF.');
+        } finally {
+            btn.disabled = false; btn.textContent = '📄 Importar PDF da AE';
+        }
+    }
+    async function salvarAE(event) {
+        event.preventDefault();
+        const itens = coletarItensAE();
+        if (!itens.length || itens.some(i => !i.descricao || i.quantidade <= 0)) {
+            alert('Adicione pelo menos um produto e informe descrição e quantidade válida para cada item.');
+            return;
+        }
+        const numero = document.getElementById('aeNumero').value.trim();
+        const fornecedor = document.getElementById('aeFornecedor').value.trim();
+        if (!numero || !fornecedor) { alert('Informe o número da AE e o fornecedor.'); return; }
+        const btn = document.getElementById('btnSalvarAE');
+        btn.disabled = true; btn.textContent = 'Salvando AE...';
+        let pdfPath = null;
+        try {
+            if (aePdfArquivo) {
+                const nomeSeguro = aePdfArquivo.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
+                pdfPath = 'ae/' + Date.now() + '-' + nomeSeguro;
+                const { error: uploadError } = await _supabase.storage.from('documentos-ae').upload(pdfPath, aePdfArquivo, { contentType: 'application/pdf', upsert: false });
+                if (uploadError) throw new Error('Falha ao anexar PDF: ' + uploadError.message);
+            }
+            const payload = {
+                numero_ae: numero,
+                fornecedor,
+                data_emissao: document.getElementById('aeDataEmissao').value || null,
+                prazo_entrega: document.getElementById('aePrazoEntrega').value || null,
+                valor_total: itens.reduce((s,i) => s + i.valor_total, 0),
+                status: document.getElementById('aeStatus').value,
+                numero_empenho: document.getElementById('aeNumeroEmpenho').value.trim() || null,
+                data_empenho: document.getElementById('aeDataEmpenho').value || null,
+                responsavel_nome: document.getElementById('aeResponsavel').value.trim() || null,
+                observacoes: document.getElementById('aeObservacoes').value.trim() || null,
+                origem_cadastro: aePdfArquivo ? 'pdf' : 'manual',
+                pdf_nome: aePdfArquivo ? aePdfArquivo.name : null,
+                pdf_storage_path: pdfPath,
+                usuario_id: usuarioLogado?.id || null
+            };
+            const { data: cabecalho, error: erroCabecalho } = await _supabase.from('ae_solicitacoes').insert([payload]).select().single();
+            if (erroCabecalho) throw erroCabecalho;
+            const itensPayload = itens.map((item, i) => ({ ...item, ae_id: cabecalho.id, ordem: i + 1 }));
+            const { error: erroItens } = await _supabase.from('ae_itens').insert(itensPayload);
+            if (erroItens) {
+                await _supabase.from('ae_solicitacoes').delete().eq('id', cabecalho.id);
+                throw erroItens;
+            }
+            alert('AE cadastrada com sucesso!');
+            limparFormAE();
+            await carregarAEs();
+        } catch (err) {
+            console.error('Erro ao salvar AE:', err);
+            alert('Não foi possível salvar a AE: ' + (err.message || err));
+        } finally {
+            btn.disabled = false; btn.textContent = '💾 Salvar AE';
+        }
+    }
+    async function carregarAEs() {
+        const tbody = document.getElementById('tabelaAEsBody');
+        if (!tbody) return;
+        const { data, error } = await _supabase.from('ae_solicitacoes').select('*').order('created_at', { ascending: false });
+        if (error) {
+            console.error('Erro ao carregar AEs:', error);
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:18px;">Não foi possível carregar as AEs. Confira se a migração do Supabase foi aplicada.</td></tr>';
+            return;
+        }
+        aeList = data || [];
+        if (aeList.length) {
+            const ids = aeList.map(a => a.id);
+            const { data: itens, error: erroItens } = await _supabase.from('ae_itens').select('*').in('ae_id', ids).order('ordem');
+            if (erroItens) console.error('Erro ao carregar itens das AEs:', erroItens);
+            const porAe = {};
+            (itens || []).forEach(item => { (porAe[item.ae_id] ||= []).push(item); });
+            aeList.forEach(a => { a.itens = porAe[a.id] || []; });
+        }
+        renderizarAEs();
+    }
+    function renderizarAEs() {
+        const tbody = document.getElementById('tabelaAEsBody');
+        if (!tbody) return;
+        const busca = (document.getElementById('buscaAE')?.value || '').trim().toLocaleLowerCase('pt-BR');
+        const lista = aeList.filter(a => [a.numero_ae,a.fornecedor,a.numero_empenho].join(' ').toLocaleLowerCase('pt-BR').includes(busca));
+        const total = aeList.length;
+        const valor = aeList.reduce((s,a) => s + Number(a.valor_total || 0), 0);
+        document.getElementById('aeKpiTotal').textContent = total;
+        document.getElementById('aeKpiAguardando').textContent = aeList.filter(a => a.status === 'Aguardando empenho').length;
+        document.getElementById('aeKpiEmpenhadas').textContent = aeList.filter(a => ['Empenhada','AF emitida'].includes(a.status)).length;
+        document.getElementById('aeKpiValor').textContent = moedaAE(valor);
+        if (!lista.length) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);">Nenhuma AE encontrada.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = lista.map(a => `<tr>
+            <td><strong>${escapeHtml(a.numero_ae)}</strong><br><small>${a.data_emissao ? new Date(a.data_emissao+'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'}</small></td>
+            <td>${escapeHtml(a.fornecedor)}</td>
+            <td>${a.numero_empenho ? '<strong>' + escapeHtml(a.numero_empenho) + '</strong>' : '<button type="button" class="btn btn-outline btn-sm" onclick="registrarEmpenhoAE(' + a.id + ')">Registrar empenho</button>'}</td>
+            <td>${escapeHtml(aeItensResumo(a.id))}</td>
+            <td style="white-space:nowrap">${moedaAE(a.valor_total)}</td>
+            <td>${escapeHtml(a.status)}</td>
+            <td>${a.pdf_storage_path ? '<button type="button" class="btn btn-outline btn-sm" onclick="abrirPdfAE(' + a.id + ')">📎 PDF</button>' : '—'}</td>
+        </tr>`).join('');
+    }
+    async function registrarEmpenhoAE(id) {
+        const ae = aeList.find(a => Number(a.id) === Number(id));
+        if (!ae) return;
+        const numero = prompt('Informe o número do empenho para a AE ' + ae.numero_ae + ':', ae.numero_empenho || '');
+        if (numero === null || !numero.trim()) return;
+        const data = prompt('Data do empenho (AAAA-MM-DD):', new Date().toISOString().slice(0,10));
+        if (data === null) return;
+        const { error } = await _supabase.from('ae_solicitacoes').update({
+            numero_empenho: numero.trim(),
+            data_empenho: data || null,
+            status: 'Empenhada'
+        }).eq('id', id);
+        if (error) { alert('Não foi possível registrar o empenho: ' + error.message); return; }
+        await carregarAEs();
+    }
+    function aeItensResumo(id) {
+        const a = aeList.find(x => x.id === id);
+        return a && Array.isArray(a.itens) ? a.itens.map(i => i.descricao).join(', ') : 'Itens cadastrados';
+    }
+    async function abrirPdfAE(id) {
+        const a = aeList.find(x => x.id === id);
+        if (!a || !a.pdf_storage_path) return;
+        const { data, error } = await _supabase.storage.from('documentos-ae').createSignedUrl(a.pdf_storage_path, 60);
+        if (error) { alert('Não foi possível abrir o PDF: ' + error.message); return; }
+        window.open(data.signedUrl, '_blank', 'noopener');
     }
 
     // 9. LEITOR DE PDF COM IA PARA PEDIDOS DE COMPRA
