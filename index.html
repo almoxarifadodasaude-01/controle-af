@@ -1419,9 +1419,25 @@ function abrirModulo(modulo) {
         const el = id => document.getElementById(id);
         if (!el('dashboardGraficoMensal')) return;
         const pedidos = Array.isArray(comprasList) ? comprasList : [];
-        const ativos = pedidos.filter(c => !['Concluído','Cancelado'].includes(c.status));
-        const parciais = pedidos.filter(c => c.status === 'Entrega Parcial');
-        const saldo = ativos.reduce((n,c) => n + Math.max(0,Number(c.qtd_pedida||0)-Number(c.qtd_entregue||0)),0);
+        const numero = v => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const statusNormalizado = c => String(c.status || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().toLowerCase();
+        const quantidadeRecebida = c => {
+            const totalHistorico = Array.isArray(c.entregas_historico)
+                ? c.entregas_historico.reduce((s, h) => s + numero(h.qtd), 0)
+                : 0;
+            return Math.max(numero(c.qtd_entregue), totalHistorico);
+        };
+        const ativos = pedidos.filter(c => statusNormalizado(c) !== 'cancelado');
+        const parciais = pedidos.filter(c => {
+            if (statusNormalizado(c) === 'cancelado') return false;
+            const pedida = numero(c.qtd_pedida);
+            const recebida = quantidadeRecebida(c);
+            return (recebida > 0 && pedida > recebida) || statusNormalizado(c).includes('parcial');
+        });
+        const saldo = ativos.reduce((n, c) => n + Math.max(0, numero(c.qtd_pedida) - quantidadeRecebida(c)), 0);
         const fmt = n => Number(n||0).toLocaleString('pt-BR');
         el('dashTotalPedidos').textContent=fmt(pedidos.length);
         el('dashPedidosAbertos').textContent=fmt(ativos.length);
@@ -1437,7 +1453,7 @@ function abrirModulo(modulo) {
         const estados=[['Aguardando AF','#0ea5e9'],['Em Cotação','#8b5cf6'],['AF Emitida','#2563eb'],['Entrega Parcial','#d97706'],['Concluído','#16a34a'],['Cancelado','#94a3b8']];
         el('dashboardStatus').innerHTML=estados.map(([nome,cor])=>{const n=pedidos.filter(c=>c.status===nome).length,pct=pedidos.length?Math.round(n/pedidos.length*100):0;return '<div><div class="dash-status-head"><span>'+escapeHtml(nome)+'</span><strong>'+fmt(n)+' <small style="color:var(--muted);font-weight:500">('+pct+'%)</small></strong></div><div class="dash-track"><span style="width:'+pct+'%;background:'+cor+'"></span></div></div>';}).join('');
         const pend=ativos.slice().sort((a,b)=>String(a.data_pedido||'').localeCompare(String(b.data_pedido||''))).slice(0,5);
-        el('dashboardAtencao').innerHTML=pend.length?pend.map(c=>{const falta=Math.max(0,Number(c.qtd_pedida||0)-Number(c.qtd_entregue||0));return '<div class="dash-attention-item"><div><strong>'+escapeHtml(c.num_pedido||'Pedido sem número')+'</strong><small>'+escapeHtml(c.item_descricao||'')+'</small></div><div style="text-align:right"><span class="badge '+(c.status==='Entrega Parcial'?'badge-partial':'badge-wait')+'">'+escapeHtml(c.status||'Em aberto')+'</span><small style="display:block;margin-top:4px">Saldo: '+fmt(falta)+' '+escapeHtml(c.unidade||'UN')+'</small></div></div>';}).join(''):'<div class="dash-empty">Nenhum pedido pendente.</div>';
+        el('dashboardAtencao').innerHTML=pend.length?pend.map(c=>{const falta=Math.max(0,numero(c.qtd_pedida)-quantidadeRecebida(c));return '<div class="dash-attention-item"><div><strong>'+escapeHtml(c.num_pedido||'Pedido sem número')+'</strong><small>'+escapeHtml(c.item_descricao||'')+'</small></div><div style="text-align:right"><span class="badge '+(parciais.includes(c)?'badge-partial':'badge-wait')+'">'+escapeHtml(c.status||'Em aberto')+'</span><small style="display:block;margin-top:4px">Saldo: '+fmt(falta)+' '+escapeHtml(c.unidade||'UN')+'</small></div></div>';}).join(''):'<div class="dash-empty">Nenhum pedido pendente.</div>';
         const recentes=pedidos.slice().sort((a,b)=>String(b.data_pedido||'').localeCompare(String(a.data_pedido||''))).slice(0,5);
         el('dashboardRecentes').innerHTML=recentes.length?recentes.map(c=>{const data=c.data_pedido?new Date(c.data_pedido+'T12:00:00').toLocaleDateString('pt-BR'):'Data não informada';return '<div class="dash-attention-item"><div><strong>'+escapeHtml(c.num_pedido||'Pedido sem número')+'</strong><small>'+escapeHtml(c.setor||'Setor não informado')+'</small></div><div style="text-align:right"><small>'+data+'</small><div style="margin-top:4px">'+badgeStatusHtml(c.status)+'</div></div></div>';}).join(''):'<div class="dash-empty">Ainda não há solicitações cadastradas.</div>';
     }
