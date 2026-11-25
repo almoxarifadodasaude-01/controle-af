@@ -18,7 +18,7 @@ create table if not exists public.ae_solicitacoes (
         check (origem_cadastro in ('manual', 'pdf')),
     pdf_nome text,
     pdf_storage_path text,
-    usuario_id bigint references public.usuarios(id) on delete set null,
+    usuario_id uuid references auth.users(id) on delete set null,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
     constraint ae_solicitacoes_numero_ae_unique unique (numero_ae)
