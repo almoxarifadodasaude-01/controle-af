@@ -939,6 +939,13 @@ th, td { border-bottom-color: #e8edf3; }
                 <input type="text" id="numAf" required placeholder="Ex: AF 11919/26">
             </div>
             <div>
+                <label>Vincular à AE (opcional)</label>
+                <select id="aeVinculada" onchange="preencherAFComAE(this.value)">
+                    <option value="">Selecione uma AE cadastrada...</option>
+                </select>
+                <small style="color:var(--muted);">Ao selecionar, o sistema preenche empenho, fornecedor, prazo, valor e produtos.</small>
+            </div>
+            <div>
                 <label>Nº do Empenho (Opcional)</label>
                 <input type="text" id="numEmpenho" placeholder="Ex: 00402/26">
             </div>
@@ -1485,6 +1492,7 @@ th, td { border-bottom-color: #e8edf3; }
     carregarCorFundoSalva();
 
     let afs = [];
+    let aesDisponiveis = [];
     let setores = [];
     let fornecedoresList = [];
     let selectedLetter = '';
@@ -1624,6 +1632,7 @@ restaurarSessaoAFs();
         try { await fetchSetores(); } catch(e) { console.error("Erro setores:", e); }
         try { await fetchFornecedores(); } catch(e) { console.error("Erro fornecedores:", e); }
         try { await fetchAfs(); } catch(e) { console.error("Erro AFs:", e); }
+        try { await fetchAEsParaAF(); } catch(e) { console.error('Erro ao carregar AEs para vínculo:', e); }
     }
 
     async function fetchConfig() {
@@ -2167,6 +2176,38 @@ restaurarSessaoAFs();
         });
     }
 
+    async function fetchAEsParaAF() {
+        const select = document.getElementById('aeVinculada');
+        if (!select) return;
+        const { data, error } = await _supabase.from('ae_solicitacoes').select('id,numero_ae,fornecedor,numero_empenho,prazo_entrega,valor_total,status').order('created_at', { ascending: false });
+        if (error) {
+            console.warn('AEs indisponíveis. Aplique a migração de integração AE/AF para habilitar o vínculo:', error.message);
+            select.innerHTML = '<option value="">AEs indisponíveis — confira a migração</option>';
+            return;
+        }
+        aesDisponiveis = data || [];
+        select.innerHTML = '<option value="">Sem vínculo com AE</option>' + aesDisponiveis.map(a =>
+            '<option value="' + a.id + '">' + escapeHtml(a.numero_ae) + ' — ' + escapeHtml(a.fornecedor) + ' (' + escapeHtml(a.status) + ')</option>'
+        ).join('');
+    }
+
+    async function preencherAFComAE(id) {
+        if (!id) return;
+        const ae = aesDisponiveis.find(a => String(a.id) === String(id));
+        if (!ae) return;
+        const { data: itens, error } = await _supabase.from('ae_itens').select('*').eq('ae_id', ae.id).order('ordem');
+        if (error) { alert('Não foi possível carregar os produtos da AE: ' + error.message); return; }
+        document.getElementById('numEmpenho').value = ae.numero_empenho || '';
+        document.getElementById('fornecedor').value = ae.fornecedor || '';
+        document.getElementById('valorTotal').value = Number(ae.valor_total || 0).toFixed(2);
+        document.getElementById('prazoEntrega').value = ae.prazo_entrega || '';
+        document.getElementById('produtosText').value = (itens || []).map(item =>
+            item.descricao + ' — ' + Number(item.quantidade || 0).toLocaleString('pt-BR') + ' ' + (item.unidade || 'UN') +
+            ' | Unitário: R$ ' + Number(item.valor_unitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) +
+            ' | Total: R$ ' + Number(item.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+        ).join('\\n');
+    }
+
     async function fetchAfs() {
         const { data, error } = await _supabase.from('afs').select('*');
         if (error) {
@@ -2188,6 +2229,7 @@ restaurarSessaoAFs();
         const payload = {
             numaf: document.getElementById('numAf').value.trim(),
             numempenho: document.getElementById('numEmpenho').value.trim() || null,
+            ae_id: document.getElementById('aeVinculada').value ? parseInt(document.getElementById('aeVinculada').value, 10) : null,
             setor: document.getElementById('setor').value,
             fornecedor: document.getElementById('fornecedor').value.trim(),
             valortotal: valTotalInput ? parseFloat(valTotalInput) : 0,
@@ -2215,9 +2257,14 @@ restaurarSessaoAFs();
         if (result.error) {
             alert("❌ Erro ao salvar AF:\n\n" + result.error.message);
         } else {
+            if (payload.ae_id) {
+                const { error: erroStatusAE } = await _supabase.from('ae_solicitacoes').update({ status: 'AF emitida' }).eq('id', payload.ae_id);
+                if (erroStatusAE) console.warn('AF salva, mas não foi possível atualizar o status da AE:', erroStatusAE.message);
+            }
             registrarLog(editId ? `Atualizou AF: ${payload.numaf}` : `Cadastrou nova AF: ${payload.numaf}`, payload.numaf);
             resetForm();
             fetchAfs();
+            fetchAEsParaAF();
         }
     });
 
@@ -2228,6 +2275,7 @@ restaurarSessaoAFs();
         document.getElementById('editAfId').value = af.id;
         document.getElementById('numAf').value = af.numaf || af.numAf || '';
         document.getElementById('numEmpenho').value = af.numempenho || af.numEmpenho || '';
+        document.getElementById('aeVinculada').value = af.ae_id || '';
         document.getElementById('setor').value = af.setor || '';
         document.getElementById('fornecedor').value = af.fornecedor || '';
         document.getElementById('valorTotal').value = af.valortotal || af.valorTotal || '';
@@ -2246,6 +2294,7 @@ restaurarSessaoAFs();
     function resetForm() {
         document.getElementById('afForm').reset();
         document.getElementById('editAfId').value = '';
+        document.getElementById('aeVinculada').value = '';
         document.getElementById('formTitle').innerText = 'Cadastrar Nova Autorização';
         document.getElementById('btnSubmitForm').innerText = 'Salvar AF';
         document.getElementById('btnCancelEdit').style.display = 'none';
