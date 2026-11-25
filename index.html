@@ -1397,6 +1397,7 @@ function abrirModulo(modulo) {
         document.getElementById('topSub').innerText = titulos[modulo][1];
     }
 
+    if (modulo === 'aes') carregarAEs();
     if (modulo === 'dashboard') renderizarDashboard();
     if (modulo === 'integracao') renderizarCruzamento();
     if (modulo === 'historico') carregarHistoricoCompras();
