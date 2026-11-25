@@ -1423,7 +1423,7 @@ function abrirModulo(modulo) {
             const n = Number(v);
             return Number.isFinite(n) ? n : 0;
         };
-        const statusNormalizado = c => String(c.status || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().toLowerCase();
+        const statusNormalizado = c => String(c.status || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
         const quantidadeRecebida = c => {
             const totalHistorico = Array.isArray(c.entregas_historico)
                 ? c.entregas_historico.reduce((s, h) => s + numero(h.qtd), 0)
