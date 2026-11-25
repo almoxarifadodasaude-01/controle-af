@@ -2205,7 +2205,7 @@ restaurarSessaoAFs();
             item.descricao + ' — ' + Number(item.quantidade || 0).toLocaleString('pt-BR') + ' ' + (item.unidade || 'UN') +
             ' | Unitário: R$ ' + Number(item.valor_unitario || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) +
             ' | Total: R$ ' + Number(item.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-        ).join('\\n');
+        ).join('\n');
     }
 
     async function fetchAfs() {
