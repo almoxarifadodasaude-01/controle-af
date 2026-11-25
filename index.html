@@ -1220,8 +1220,6 @@ th, td { border-bottom-color: #e8edf3; }
     let comprasList = [];
     let aeList = [];
     let aePdfArquivo = null;
-    let aeList = [];
-    let aePdfArquivo = null;
     let afsList = [];
     let setoresList = [];
     let geminiApiKey = ''; // Segredo mantido exclusivamente no servidor (Edge Function).
@@ -1387,7 +1385,6 @@ function abrirModulo(modulo) {
         dashboard: ['Visão Geral do SIA-Saúde', 'Painel gerencial do Almoxarifado da Saúde de Avaré'],
         aes: ['Autorizações de Empenho (AE)', 'Cadastro, importação de PDF e acompanhamento dos empenhos'],
         compras: ['Controle de Compras & Pedidos', 'Gestão de solicitações, quantidades pedidas, entregas recebidas e saldos'],
-        aes: ['Autorizações de Empenho (AE)', 'Cadastro, importação de PDF e acompanhamento dos empenhos'],
         afs: ['Controle Interno de AFs', 'Autorizações de Fornecimento, empenhos, cobranças e vigências'],
         whatsapp: ['Central de Atendimento WhatsApp', 'Comunicação integrada por setores do Almoxarifado da Saúde'],
         integracao: ['Painel Consolidado (Pedidos × AFs)', 'Cruzamento automático entre solicitações de compra e AFs emitidas'],
@@ -1431,7 +1428,6 @@ function abrirModulo(modulo) {
 
         // Busca Pedidos de Compra
         await carregarCompras();
-        await carregarAEs();
         await carregarAEs();
     }
 
@@ -2129,6 +2125,14 @@ ${texto.slice(0,24000)}`;
             return;
         }
         aeList = data || [];
+        if (aeList.length) {
+            const ids = aeList.map(a => a.id);
+            const { data: itens, error: erroItens } = await _supabase.from('ae_itens').select('*').in('ae_id', ids).order('ordem');
+            if (erroItens) console.error('Erro ao carregar itens das AEs:', erroItens);
+            const porAe = {};
+            (itens || []).forEach(item => { (porAe[item.ae_id] ||= []).push(item); });
+            aeList.forEach(a => { a.itens = porAe[a.id] || []; });
+        }
         renderizarAEs();
     }
     function renderizarAEs() {
@@ -2149,12 +2153,27 @@ ${texto.slice(0,24000)}`;
         tbody.innerHTML = lista.map(a => `<tr>
             <td><strong>${escapeHtml(a.numero_ae)}</strong><br><small>${a.data_emissao ? new Date(a.data_emissao+'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'}</small></td>
             <td>${escapeHtml(a.fornecedor)}</td>
-            <td>${escapeHtml(a.numero_empenho || 'Aguardando')}</td>
+            <td>${a.numero_empenho ? '<strong>' + escapeHtml(a.numero_empenho) + '</strong>' : '<button type="button" class="btn btn-outline btn-sm" onclick="registrarEmpenhoAE(' + a.id + ')">Registrar empenho</button>'}</td>
             <td>${escapeHtml(aeItensResumo(a.id))}</td>
             <td style="white-space:nowrap">${moedaAE(a.valor_total)}</td>
             <td>${escapeHtml(a.status)}</td>
             <td>${a.pdf_storage_path ? '<button type="button" class="btn btn-outline btn-sm" onclick="abrirPdfAE(' + a.id + ')">📎 PDF</button>' : '—'}</td>
         </tr>`).join('');
+    }
+    async function registrarEmpenhoAE(id) {
+        const ae = aeList.find(a => Number(a.id) === Number(id));
+        if (!ae) return;
+        const numero = prompt('Informe o número do empenho para a AE ' + ae.numero_ae + ':', ae.numero_empenho || '');
+        if (numero === null || !numero.trim()) return;
+        const data = prompt('Data do empenho (AAAA-MM-DD):', new Date().toISOString().slice(0,10));
+        if (data === null) return;
+        const { error } = await _supabase.from('ae_solicitacoes').update({
+            numero_empenho: numero.trim(),
+            data_empenho: data || null,
+            status: 'Empenhada'
+        }).eq('id', id);
+        if (error) { alert('Não foi possível registrar o empenho: ' + error.message); return; }
+        await carregarAEs();
     }
     function aeItensResumo(id) {
         const a = aeList.find(x => x.id === id);
