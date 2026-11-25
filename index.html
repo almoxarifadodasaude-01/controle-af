@@ -1949,8 +1949,8 @@ function abrirModulo(modulo) {
     function dataISOAE(valor) {
         if (!valor) return '';
         const s = String(valor).trim();
-        if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return s;
-        const m = s.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})$/);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const m = s.match(/^(\d{1,2})[\\/.-](\d{1,2})[\\/.-](\d{4})$/);
         return m ? m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0') : '';
     }
     function adicionarItemAE(item = {}) {
@@ -2019,7 +2019,7 @@ function abrirModulo(modulo) {
             for (let p = 1; p <= pdf.numPages; p++) {
                 const page = await pdf.getPage(p);
                 const content = await page.getTextContent();
-                texto += content.items.map(x => x.str).join(' ') + '\\n';
+                texto += content.items.map(x => x.str).join(' ') + '\n';
             }
             if (!texto.trim()) throw new Error('O PDF não possui texto selecionável. Será necessário preencher manualmente ou usar um PDF com OCR.');
             const prompt = `Leia esta Autorização de Empenho (AE) do Fiorilli e extraia os dados. Responda somente JSON válido, sem markdown, neste formato:
@@ -2076,7 +2076,7 @@ ${texto.slice(0,24000)}`;
         let pdfPath = null;
         try {
             if (aePdfArquivo) {
-                const nomeSeguro = aePdfArquivo.name.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
+                const nomeSeguro = aePdfArquivo.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
                 pdfPath = 'ae/' + Date.now() + '-' + nomeSeguro;
                 const { error: uploadError } = await _supabase.storage.from('documentos-ae').upload(pdfPath, aePdfArquivo, { contentType: 'application/pdf', upsert: false });
                 if (uploadError) throw new Error('Falha ao anexar PDF: ' + uploadError.message);
